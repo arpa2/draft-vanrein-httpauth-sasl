@@ -1,0 +1,36 @@
+Self:
+
++ Check if "realm" is needed in the Final 200 Response to fulfil other specs
+
++ Change userview= into httpuser= and SASL_USERVIEW into HTTP_USER
+
++ Push httpuser= and HTTP_USER out to draft-vanrein-http-unauth-user
+
++ Remove HTTP_USER in favour of the independently proposed User: header
+
+
+Daniel Stenberg <daniel@haxx.se> wrote:
+
+DONE:
+> 1. RFC2616 is dead, refer to RFC 723X specs instead
+*Oops* -- will fix that.
+
+DONE:
+> 2. I would really like to see protocol examples in the spec that
+> better explains the flows. I couldn't understand it without reading
+> the blog post -
+> that features such examples.
+Fair enough, will do that.
+
+DONE:
+> 3. The mandatory 403 when not authenticated seems unorthodox. Regular
+> HTTP auth returns 401 (or 407 for proxy) when not authenticated.
+Indeed.  I was confused by the required inclusion of a challenge, but
+didn't know the client recognised a repeat.  Will fix.
+
+DONE:
+> 4. Section 3 wrongly states that Basic and Digest auth uses usernames
+> in URIs. They didn't and don't. They speak of user names but they
+> don't (have to) come from the URI.
+Agreed, what I said is indeed browser behaviour.
+
