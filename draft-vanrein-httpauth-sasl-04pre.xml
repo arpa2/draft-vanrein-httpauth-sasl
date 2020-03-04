@@ -29,7 +29,7 @@
 		</address>
 	</author>
 
-	<date day="20" month="January" year="2200"/>
+	<date day="4" month="March" year="2020"/>
 
 	<abstract>
 	<t>Most application-level protocols standardise their authentication
@@ -41,13 +41,15 @@
 <!--
 
 CHANGES FROM 03 TO 04:
- * Rename userview= to httpuser= and SASL_USERVIEW to HTTP_USER (cf. HTTP_HOST)
- * Completely drop httpuser= to make it an orthogonal HTTP User: header
+ * Made the "realm" field optional; that is what RFC 7235 seems to suggest
+ * Removed the "text" field; it is not SASL-specific; could be a security risk
+ * Fields c2s and s2c are base64-encoded and are absent in lieu of a SASL token
+ * Dropped userview= to make it an orthogonal HTTP User: header
  * Added an example run (that was a very useful suggestion!)
- * Allowed Authentication headers in Final 403 Responses (is it enough?)
  * Confirmed the Authentication-Info header in the Final 200 Response
- * Changed SASL_CLIENTID to the customary name REMOTE_USER
- * Downplayed the use of the Final 403 Response.
+ * Changed envvar SASL_CLIENTID to the customary name REMOTE_USER
+ * Replaced 403 Forbidden with a repeated response asking for authentication
+ * Renamed Final 200 to Positive Response, Final 403 to Negative Response
 
 CHANGES FROM 02 TO 03:
  * Less repeating of variables (mech)
@@ -89,7 +91,7 @@ CHANGES FROM pre-00 to 00:
 
 <t>HTTP has historically followed its own path for client authentication,
 while many other end-user protocols standardised on SASL;
-examples of SASL protocols include SMTP, IMAP, POP, XMPP, LDAP and AMQP.
+examples of SASL protocols include SMTP, IMAP, POP, XMPP, LDAP, AMQP and MQTT.
 This specification introduces SASL to HTTP, so it may share in
 past and future work done for SASL in general.</t>
 
@@ -108,7 +110,7 @@ to a library automatically spills over into the HTTP sphere.  It is common
 for developers of web clients to also produce email clients, so a shared
 code base (and credential store) is not difficult to imagine.</t>
 
-<t>Sharing is beneficial in both directions.
+<t>Sharing of authentication mechanisms is beneficial in both directions.
 HTTP benefits by being able to use anything from
 strong password mechanisms <xref target="RFC5802"/> without explicit
 support <xref target="RFC7804"/> in applications,
@@ -137,8 +139,8 @@ application; this is specifically true for applications developed in
 HTML and JavaScript, which tend to load code from various places,
 including code that is not always in the end user's interest; since it
 already is a concern what identity information passes through these
-applications, it is certainly not advisable to use credentials in those
-places.  Browsers are in a better position to take control over these
+applications, it is not advisable to use credentials in those
+places.  The HTTP layer is in a better position to take control over these
 assets, at the protocol levels of HTTP and TLS, and conceal credentials
 and possibly also identity from applications running on top.  Inasfar
 as tokens are needed, they can be derived from session keys using
@@ -199,32 +201,34 @@ with a status code set to 401 or 407.
 Intermediate Requests are those HTTP requests that a client sends to
 continue a SASL authentication after an Intermediate Response.</t>
 
-<t>Final Responses either set a 200 or 403 status code, the first depicting
-success and the second depicting failure.  Information in a Final 200 Response
-is provided in an Authentication-Info or Proxy-Authentication-Info header
+<t>Positive Responses set a 200 status code to depict success.  Information
+in this response is provided in an Authentication-Info or
+Proxy-Authentication-Info header
 <xref target="RFC7615"/> instead of the headers
 used in Initial Responses and Intermediate Responses <xref target="RFC7235"/>.
-Note that proper interpretation of the Final 200 Response requires client state
+Proper interpretation of a Positive Response requires client state
 indicating that SASL authentication was used, or else the optional fields are
 not completely reliable information sources; cryptographic markers in the
 c2c field MAY be used to overcome this in a manner that defies abuse by
-rogue servers.
-The Final 403 Response send no authentication-related headers, but this is
-not the customary practice in HTTP authentication; instead, a server SHOULD
-continue to offer the 401 status codes with Intermediate Responses, and
-rely on the client to detect cycles and abandon continued attempts.</t>
+rogue servers.</t>
+
+<t>Negative Responses also set a 401 or 407 status code and will often
+return the client to an earlier state that it recognises as one it has
+tried before.  These responses should therefore offer authentication to
+start again.  In contrast to the Initial Response, there is now a c2c
+field that helps the client evaluate the request.</t>
 
 <t>The following fields, defined in upcoming sections, MUST and MAY be present
 in HTTP authentication exchanges for SASL:</t>
 <figure><artwork><![CDATA[
 Request or Response   | MUST have fields    | MAY have fields
 ----------------------+---------------------+----------------------
-Initial Response      | mech,s2s,realm      | text
-Initial Request       | mech,s2s,c2c,realm  | c2s
-Intermediate Response | c2c,s2c,s2s         | text
-Intermediate Request  | c2c,c2s,s2s         | 
-Final 200 Response    | c2c                 | s2s
-Final 403 Response    | c2c                 |
+Initial Response      |     s2s,mech        |     realm
+Initial Request       | c2c,s2s,mech        | c2s,realm
+Intermediate Response | c2c,s2s             | s2c
+Intermediate Request  | c2c,s2s             | c2s
+Positive Response     | c2c                 | s2s
+Negative Response     | c2c,s2s,mech        |     realm
 ]]></artwork></figure>
 <!-- Note: Used to have user,realm with Initial Response/Request -->
 
@@ -235,39 +239,25 @@ Final 403 Response    | c2c                 |
 <t>Data for SASL is transported in the following fields:
 <list style="hanging" hangIndent="6">
 <t hangText="c2s">
-	holds SASL mechanism-specific data from client to server.</t>
+	holds SASL token data from client to server.
+	This field is transmitted with base64 encoding.
+	The field is absent when the SASL client sends no token.</t>
 <t hangText="s2c">
-	holds SASL mechanism-specific data from server to client.</t>
+	holds SASL token data from server to client.
+	This field is transmitted with base64 encoding.
+	The field is absent when the SASL server sends no token.</t>
 <t hangText="s2s">
 	holds opaque server data which the client MUST reflect in
-	Intermediate Requests, to implement stateless SASL handling
-	in the server.  This is a necessity for a stateless
+	Intermediate Requests.  This is a necessity for a stateless
 	HTTP Authentication framework
-	[Section 5.1.2 of <xref target="RFC7235"/>].  It MAY also
-	be used to pass cached <xref target="cache"/> authentication
-	results.</t>
+	[Section 5.1.2 of <xref target="RFC7235"/>].  It MAY be used
+	in a Positive Response to pass a cacheable <xref target="cache"/>
+	authentication token.</t>
 <t hangText="c2c">
 	holds opaque client data which the server MUST reflect in
-	Intermediate Responses and Final 200/403 Responses.  This can
+	Intermediate, Positive and Negative Responses.  This can
 	help to also make the client stateless.</t>
 </list></t>
-
-<t>It is not generally safe for SASL mechanisms to
-exchange c2s and s2c messages over unprotected transports.  The c2c and
-s2s fields MUST be protected against tampering by rogue peers, and such
-protection also protects against tampering by rogue intermediates when
-using an unprotected transport.  In addition, c2c and s2s fields may also
-need to be concealed from peers and intermediates.</t>
-
-<t>Whether s2c is supplied in a Final 200 Response depends on the SASL
-mechanism, which may or may not have additional data to provide in this
-phase.  Note that SASL requires empty s2c messages to be distinguished
-from absence thereof.  When the server provides c2s and/or s2s data in a
-Final 200 Response, then it indicates that the supplied fields MAY provide
-one-step re-authentication with an empty s2c string, but the server MAY
-revoke this privilege at any time and for any reason; it would respond
-with an Initial Response in case of such revocation, but with a quick
-Final 200 Response if the one-step re-authentication is still acceptable.</t>
 
 <t>The following fields support SASL within the HTTP Authentication Framework:
 <list style="hanging" hangIndent="6">
@@ -292,21 +282,19 @@ Final 200 Response if the one-step re-authentication is still acceptable.</t>
 	name<!--DROPPED ;
 	In a User Viewing Request, the field is fixated to
 	ANONYMOUS <xref target="RFC4505"/> if it is provided -->.</t>
-<t hangText="text">
-	is a user-oriented text explaining what information is needed.</t>
 </list></t>
 
 </section>
 
 <section title="Caching Authentication Results" anchor="cache">
 
-<t>When an HTTP server sends a Final 200 Response, it MAY include
-an "s2s" field.  If it does this, then it SHOULD prepare to accept
+<t>When an HTTP server sends a Positive Response, it MAY include
+an "s2s" field.  If it does this, then it should be prepared to accept
 the field value for authentication in an Initial Request.  However,
 credentials can expire or fall in disgrace for other reasons, so
 the server MAY still choose to reject the provided field.</t>
 
-<t>When an HTTP client receives a Final 200 Response with an
+<t>When an HTTP client receives a Positive Response with an
 "s2s" field, it MAY memorise the fields for future reuse in an
 Initial Request, either with or without preceding Initial Response
 from the server.  The HTTP client MUST use the realm as part of the
@@ -314,7 +302,7 @@ decision which cached result to use, but it MAY extrapolate the
 results from one resource retrieval in an attempt to authenticate
 another.</t>
 
-<t>When cached field result in a Final 407 Response then the
+<t>When cached fields result in a Negative Response then the
 HTTP client SHOULD remove the failing cache entry, and it SHOULD
 try again by going through a full SASL authentication cycle.
 The stateless nature of HTTP authentication is helpful in the
@@ -324,6 +312,63 @@ Initial Response.</t>
 </section>
 
 </section>
+
+
+<section title="Server-Side User Name" anchor="user">
+
+<!--
+TODO:well-known
+-->
+
+<t>HTTP does not define a mechanism to specifically select the
+user as an authoritative resource name space on the server.  Local
+syntax conventions exist, but lack universally reliable semantics.
+Basic authentication has been used to this effect, but this
+conflates the client identity with the server-side name space,
+which is not necessarily the same.</t>
+
+<t>To allow HTTP servers to zoom in on user-specific information,
+the User header is hereby introduced.  Its syntax matches the
+userinfo part of a URI, up to but excluding any colons in it:
+<figure><artwork><![CDATA[
+User = *( unreserved / pct-encoded / sub-delims )
+]]></artwork></figure>
+The value of the header MUST be percent-decoded before the
+server can use it to identify a local user.</t>
+
+<t>The User header MAY be sent by clients, and HTTP servers
+MAY ignore it for any reason, including local user identities
+that do not comply to a more restrictive local user name
+syntax.</t>
+
+<t>When an HTTP server makes use of the User header, it MUST
+include a Vary header in its response, with either a single "*"
+in it or the name "User".  This informs caches that the response
+must be considered specific to the User header value in the
+matching request.</t>
+
+<t>The User header may be used with or without any form of
+authentication.  When used with authentication, the value of
+the percent-decoded header is considered part of the authority
+component of the resource, and therefore of the naming scope
+for the realm.  Clients can use this refined notion of realm
+to select an authentication identity; when the value is known
+early enough, this may even help to select an X.509 client
+certificate.  Note that the User header might be used together
+with the aforementioned practice of Basic authentication, but
+it can also replace it with an even simpler mechanism to
+free up the authentication exchange for HTTP SASL.</t>
+
+<t>The distinction of a client-side user from a server-side
+user can benefit the use of credential schemes that are not
+tied to the HTTP server.  A specific example of this is the
+current work on realm crossover with GS2-SXOVER-PLUS.  The
+use of such a mechanism may offload security concerns from
+the application layer. </t>
+
+</section>
+
+
 
 <!-- MOOT, GIVEN THE [Proxy-]Authentication-Info HEADER, SO DROPPED
 
@@ -451,7 +496,7 @@ Authorization: SASL
 ]]></artwork></figure>
 This mechanism is initiated by the client, hence the inclusion of the c2s token in the Initial Request.  The contents of this field are specific to the selected mechanism, so SCRAM-SHA-256-PLUS in this case.</t>
 
-<t>The SCRAM mechanism implementation is now initiated with the c2s token, and the server produces a response in a s2c token.  To be able to validate future client messages against server-side state, it includes such state in an s2s token.  This token is presumably protected from abuse with a signature and/or encryption, and it would likely identify the selected mechanism to validate during later rounds.  The server packs all this in an Intermediate Response
+<t>The SCRAM mechanism implementation is now initiated with the c2s token, and the server produces a followup challenge in a s2c token.  To be able to validate future client messages against server-side state, it includes such state in an s2s token.  This token is presumably protected from abuse with a signature and/or encryption, and it would likely identify the selected mechanism to validate during later rounds.  The server packs all this in an Intermediate Response
 <figure><artwork><![CDATA[
 HTTP/1.1 401 Unauthorized
 WWW-Authentication: SASL
@@ -473,7 +518,7 @@ Authorization: SASL
     c2c=[rrrrr]
 ]]></artwork></figure></t>
 
-<t>When the client has performed authentication properly, as determined by a server-side check of the c2s response token with the prior state in the s2s token, it can send a Final 200 Response along with the requested resource
+<t>When the client has performed authentication properly, as determined by a server-side check of the c2s response token with the prior state in the s2s token, it can send a Positive Response along with the requested resource
 <figure><artwork><![CDATA[
 HTTP/1.1 200 OK
 WWW-Authentication: SASL
@@ -481,9 +526,8 @@ WWW-Authentication: SASL
     s2s=[zzzzz],
     c2c=[rrrrr]
 ]]></artwork></figure></t>
-<t>TODO:WRONGHEADER?</t>
 
-<t>The s2s token in a Final 200 Response is an optional extension.  It is presented by the server to allow the client to speed up authentication in future requests.  The client may send it whenever the server asks for the same realm string under the same scheme and authority; the client may make proactive assumpions about the realm string for new requests.  Authentication must never be reused in another context than bound by channel binding.  When used, the client immediate sends an Intermediate Response holding
+<t>The s2s token in a Positive Response is an optional extension.  It is presented by the server to allow the client to speed up authentication in future requests.  The client may send it whenever the server asks for the same realm string under the same scheme and authority; the client may make proactive assumpions about the realm string for new requests.  Authentication must never be reused in another context than bound by channel binding.  When used, the client immediate sends an Intermediate Response holding
 <figure><artwork><![CDATA[
 Authorization: SASL
     realm="members only"
@@ -497,9 +541,19 @@ Authorization: SASL
 
 <section title="Security Considerations">
 
-<t>The SASL exchange may be at risk of tampering when the sequence of
-HTTP messages is not secured to form one stream.  The termination of such
-a secure layer MUST also terminate an ongoing SASL handshake.</t>
+<t>It is not generally safe for SASL mechanisms to
+exchange c2s and s2c messages over unprotected transports.  Furthermore,
+the SASL exchange may be at risk of tampering when the sequence of
+HTTP messages is not secured to form one stream.  This means that a
+secure transport layer must be used, like TLS.  The termination of such
+a secure layer MUST also terminate any ongoing SASL handshakes.</t>
+
+<t>The c2c and s2s fields MUST be protected against tampering by rogue
+peers, and such
+protection also protects against tampering by rogue intermediates when
+using an unprotected transport.  In addition, but dependent on the
+mechanism used, the c2c and s2s fields may also
+need encryption to conceal their data from peers and intermediates.</t>
 
 <t>SASL EXTERNAL can be a very efficient mechanism to combine with a
 secure transport layer if that includes authentication.  This may be the case
@@ -516,6 +570,9 @@ When doing so, it is vital that either there be no renegotiation of the
 TLS handshake, or both secure renegotiation
 <xref target="RFC5746"/> and the extended master secret
 <xref target="RFC7627"/> are used.</t>
+
+<t>The User header field as defined herein is orthogonal to issues of
+authentication and authorisation, and adds no security concerns.</t>
 
 </section>
 
@@ -535,6 +592,14 @@ Reference:    TBD:this specification
 ]]></artwork></figure>
 The capitalisation of the service name has historic origins and is now the
 preferred spelling for reasons of compatibility.</t>
+
+<t>Please add the following entry to the Message Headers registry:
+<figure><artwork><![CDATA[
+Header Field Name   Template   Protocol   Status    Reference
+------------------  ---------  ---------  -------   ----------
+User                           http       TBD       TBD:THIS_SPEC
+]]></artwork></figure>
+</t>
 
 </section>
 
@@ -588,16 +653,10 @@ ANCIENT, MOVE TO 723*: <?rfc include="reference.RFC.2616.xml"?>
 <section title="HTTP Server Environment Variables" anchor="envvars">
 
 <t>We define a number of variables that SHOULD be passed
-from an HTTP SASL stack to applications run on
-top of it.  The intention of defining these is to
-obtain maximum interoperability between these
-layers of software.</t>
-
-<t>A common practice is to set environment variables
-with a given name to values that may be meaningful
-to applications.  Those applications should be
-mindful about the possible meaning of absent
-variables.</t>
+from an HTTP SASL stack (and from User header processing)
+to applications run on top of it.  The intention of
+defining these is to obtain maximum interoperability between
+these layers of software.</t>
 
 <!--
 <t>The following variable MAY be available in both
@@ -630,7 +689,7 @@ when the server could send a 200 OK response:
     because sites only need it when there are more than
     one in the same name space.  When undefined in the
     SASL flow, this variable will not be set.</t>
-<t hangText="REMOTE_USER"> is the identity as confirmed through
+<t hangText="REMOTE_USER"> is the client identity as confirmed through
     SASL authentication.  Its content is formatted like
     an email address, and includes a domain name.  That
     domain need not be related to the web server; it is
@@ -645,6 +704,16 @@ when the server could send a 200 OK response:
     the server may extract from the s2s field in
     the HTTP SASL protocol flow.  This depends on the
     authentication stack used in the web server.</t>
+</list></t>
+
+<t>The following variable SHOULD be available while processing
+a request with a User header with locally acceptable syntax:
+<list style="hanging" hangIndent="6">
+<t hangText="LOCAL_USER">gives the HTTP User header value
+	after syntax checking and percent-decoding.  If used at all,
+	it MUST be treated as a resource name space selector.
+	This header does not describe the authenticated client identity,
+	which is usually passed in a variable REMOTE_USER.</t>
 </list></t>
 
 
