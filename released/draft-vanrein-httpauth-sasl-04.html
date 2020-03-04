@@ -1,0 +1,806 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" 
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head profile="http://www.w3.org/2006/03/hcard http://dublincore.org/documents/2008/08/04/dc-html/">
+  <meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+
+  <title>HTTP Authentication with SASL</title>
+
+  <style type="text/css" title="Xml2Rfc (sans serif)">
+  /*<![CDATA[*/
+	  a {
+	  text-decoration: none;
+	  }
+      /* info code from SantaKlauss at http://www.madaboutstyle.com/tooltip2.html */
+      a.info {
+          /* This is the key. */
+          position: relative;
+          z-index: 24;
+          text-decoration: none;
+      }
+      a.info:hover {
+          z-index: 25;
+          color: #FFF; background-color: #900;
+      }
+      a.info span { display: none; }
+      a.info:hover span.info {
+          /* The span will display just on :hover state. */
+          display: block;
+          position: absolute;
+          font-size: smaller;
+          top: 2em; left: -5em; width: 15em;
+          padding: 2px; border: 1px solid #333;
+          color: #900; background-color: #EEE;
+          text-align: left;
+      }
+	  a.smpl {
+	  color: black;
+	  }
+	  a:hover {
+	  text-decoration: underline;
+	  }
+	  a:active {
+	  text-decoration: underline;
+	  }
+	  address {
+	  margin-top: 1em;
+	  margin-left: 2em;
+	  font-style: normal;
+	  }
+	  body {
+	  color: black;
+	  font-family: verdana, helvetica, arial, sans-serif;
+	  font-size: 10pt;
+	  max-width: 55em;
+	  
+	  }
+	  cite {
+	  font-style: normal;
+	  }
+	  dd {
+	  margin-right: 2em;
+	  }
+	  dl {
+	  margin-left: 2em;
+	  }
+	
+	  ul.empty {
+	  list-style-type: none;
+	  }
+	  ul.empty li {
+	  margin-top: .5em;
+	  }
+	  dl p {
+	  margin-left: 0em;
+	  }
+	  dt {
+	  margin-top: .5em;
+	  }
+	  h1 {
+	  font-size: 14pt;
+	  line-height: 21pt;
+	  page-break-after: avoid;
+	  }
+	  h1.np {
+	  page-break-before: always;
+	  }
+	  h1 a {
+	  color: #333333;
+	  }
+	  h2 {
+	  font-size: 12pt;
+	  line-height: 15pt;
+	  page-break-after: avoid;
+	  }
+	  h3, h4, h5, h6 {
+	  font-size: 10pt;
+	  page-break-after: avoid;
+	  }
+	  h2 a, h3 a, h4 a, h5 a, h6 a {
+	  color: black;
+	  }
+	  img {
+	  margin-left: 3em;
+	  }
+	  li {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  ol {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  ol p {
+	  margin-left: 0em;
+	  }
+	  p {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  pre {
+	  margin-left: 3em;
+	  background-color: lightyellow;
+	  padding: .25em;
+	  }
+	  pre.text2 {
+	  border-style: dotted;
+	  border-width: 1px;
+	  background-color: #f0f0f0;
+	  width: 69em;
+	  }
+	  pre.inline {
+	  background-color: white;
+	  padding: 0em;
+	  }
+	  pre.text {
+	  border-style: dotted;
+	  border-width: 1px;
+	  background-color: #f8f8f8;
+	  width: 69em;
+	  }
+	  pre.drawing {
+	  border-style: solid;
+	  border-width: 1px;
+	  background-color: #f8f8f8;
+	  padding: 2em;
+	  }
+	  table {
+	  margin-left: 2em;
+	  }
+	  table.tt {
+	  vertical-align: top;
+	  }
+	  table.full {
+	  border-style: outset;
+	  border-width: 1px;
+	  }
+	  table.headers {
+	  border-style: outset;
+	  border-width: 1px;
+	  }
+	  table.tt td {
+	  vertical-align: top;
+	  }
+	  table.full td {
+	  border-style: inset;
+	  border-width: 1px;
+	  }
+	  table.tt th {
+	  vertical-align: top;
+	  }
+	  table.full th {
+	  border-style: inset;
+	  border-width: 1px;
+	  }
+	  table.headers th {
+	  border-style: none none inset none;
+	  border-width: 1px;
+	  }
+	  table.left {
+	  margin-right: auto;
+	  }
+	  table.right {
+	  margin-left: auto;
+	  }
+	  table.center {
+	  margin-left: auto;
+	  margin-right: auto;
+	  }
+	  caption {
+	  caption-side: bottom;
+	  font-weight: bold;
+	  font-size: 9pt;
+	  margin-top: .5em;
+	  }
+	
+	  table.header {
+	  border-spacing: 1px;
+	  width: 95%;
+	  font-size: 10pt;
+	  color: white;
+	  }
+	  td.top {
+	  vertical-align: top;
+	  }
+	  td.topnowrap {
+	  vertical-align: top;
+	  white-space: nowrap; 
+	  }
+	  table.header td {
+	  background-color: gray;
+	  width: 50%;
+	  }
+	  table.header a {
+	  color: white;
+	  }
+	  td.reference {
+	  vertical-align: top;
+	  white-space: nowrap;
+	  padding-right: 1em;
+	  }
+	  thead {
+	  display:table-header-group;
+	  }
+	  ul.toc, ul.toc ul {
+	  list-style: none;
+	  margin-left: 1.5em;
+	  margin-right: 0em;
+	  padding-left: 0em;
+	  }
+	  ul.toc li {
+	  line-height: 150%;
+	  font-weight: bold;
+	  font-size: 10pt;
+	  margin-left: 0em;
+	  margin-right: 0em;
+	  }
+	  ul.toc li li {
+	  line-height: normal;
+	  font-weight: normal;
+	  font-size: 9pt;
+	  margin-left: 0em;
+	  margin-right: 0em;
+	  }
+	  li.excluded {
+	  font-size: 0pt;
+	  }
+	  ul p {
+	  margin-left: 0em;
+	  }
+	
+	  .comment {
+	  background-color: yellow;
+	  }
+	  .center {
+	  text-align: center;
+	  }
+	  .error {
+	  color: red;
+	  font-style: italic;
+	  font-weight: bold;
+	  }
+	  .figure {
+	  font-weight: bold;
+	  text-align: center;
+	  font-size: 9pt;
+	  }
+	  .filename {
+	  color: #333333;
+	  font-weight: bold;
+	  font-size: 12pt;
+	  line-height: 21pt;
+	  text-align: center;
+	  }
+	  .fn {
+	  font-weight: bold;
+	  }
+	  .hidden {
+	  display: none;
+	  }
+	  .left {
+	  text-align: left;
+	  }
+	  .right {
+	  text-align: right;
+	  }
+	  .title {
+	  color: #990000;
+	  font-size: 18pt;
+	  line-height: 18pt;
+	  font-weight: bold;
+	  text-align: center;
+	  margin-top: 36pt;
+	  }
+	  .vcardline {
+	  display: block;
+	  }
+	  .warning {
+	  font-size: 14pt;
+	  background-color: yellow;
+	  }
+	
+	
+	  @media print {
+	  .noprint {
+		display: none;
+	  }
+	
+	  a {
+		color: black;
+		text-decoration: none;
+	  }
+	
+	  table.header {
+		width: 90%;
+	  }
+	
+	  td.header {
+		width: 50%;
+		color: black;
+		background-color: white;
+		vertical-align: top;
+		font-size: 12pt;
+	  }
+	
+	  ul.toc a::after {
+		content: leader('.') target-counter(attr(href), page);
+	  }
+	
+	  ul.ind li li a {
+		content: target-counter(attr(href), page);
+	  }
+	
+	  .print2col {
+		column-count: 2;
+		-moz-column-count: 2;
+		column-fill: auto;
+	  }
+	  }
+	
+	  @page {
+	  @top-left {
+		   content: "Internet-Draft"; 
+	  } 
+	  @top-right {
+		   content: "December 2010"; 
+	  } 
+	  @top-center {
+		   content: "Abbreviated Title";
+	  } 
+	  @bottom-left {
+		   content: "Doe"; 
+	  } 
+	  @bottom-center {
+		   content: "Expires June 2011"; 
+	  } 
+	  @bottom-right {
+		   content: "[Page " counter(page) "]"; 
+	  } 
+	  }
+	
+	  @page:first { 
+		@top-left {
+		  content: normal;
+		}
+		@top-right {
+		  content: normal;
+		}
+		@top-center {
+		  content: normal;
+		}
+	  }
+  /*]]>*/
+  </style>
+
+  <link href="#rfc.toc" rel="Contents">
+<link href="#rfc.section.1" rel="Chapter" title="1 Introduction">
+<link href="#rfc.section.2" rel="Chapter" title="2 Embedding SASL in HTTP">
+<link href="#rfc.section.2.1" rel="Chapter" title="2.1 HTTP Request and Response Messages">
+<link href="#rfc.section.2.2" rel="Chapter" title="2.2 Authentication Field Definitions">
+<link href="#rfc.section.2.3" rel="Chapter" title="2.3 Caching Authentication Results">
+<link href="#rfc.section.3" rel="Chapter" title="3 Server-Side User Name">
+<link href="#rfc.section.4" rel="Chapter" title="4 Authentication Session Example">
+<link href="#rfc.section.5" rel="Chapter" title="5 Security Considerations">
+<link href="#rfc.section.6" rel="Chapter" title="6 IANA Considerations">
+<link href="#rfc.references" rel="Chapter" title="7 References">
+<link href="#rfc.references.1" rel="Chapter" title="7.1 Normative References">
+<link href="#rfc.references.2" rel="Chapter" title="7.2 Informative References">
+<link href="#rfc.appendix.A" rel="Chapter" title="A HTTP Server Environment Variables">
+<link href="#rfc.appendix.B" rel="Chapter" title="B Acknowledgements">
+<link href="#rfc.authors" rel="Chapter">
+
+
+  <meta name="generator" content="xml2rfc version 2.38.1 - https://tools.ietf.org/tools/xml2rfc" />
+  <link rel="schema.dct" href="http://purl.org/dc/terms/" />
+
+  <meta name="dct.creator" content="Van Rein, R." />
+  <meta name="dct.identifier" content="urn:ietf:id:draft-vanrein-httpauth-sasl-04" />
+  <meta name="dct.issued" scheme="ISO8601" content="2020-03-04" />
+  <meta name="dct.abstract" content="Most application-level protocols standardise their authentication exchanges under the SASL framework.  HTTP has taken another course, and often ends up replicating the work to allow individual mechanisms.  This specification adopts full SASL authentication into HTTP. " />
+  <meta name="description" content="Most application-level protocols standardise their authentication exchanges under the SASL framework.  HTTP has taken another course, and often ends up replicating the work to allow individual mechanisms.  This specification adopts full SASL authentication into HTTP. " />
+
+</head>
+
+<body>
+
+  <table class="header">
+    <tbody>
+    
+    	<tr>
+<td class="left">Network Working Group</td>
+<td class="right">R. Van Rein</td>
+</tr>
+<tr>
+<td class="left">Internet-Draft</td>
+<td class="right">ARPA2.net</td>
+</tr>
+<tr>
+<td class="left">Intended status: Standards Track</td>
+<td class="right">March 4, 2020</td>
+</tr>
+<tr>
+<td class="left">Expires: September 5, 2020</td>
+<td class="right"></td>
+</tr>
+
+    	
+    </tbody>
+  </table>
+
+  <p class="title">HTTP Authentication with SASL<br />
+  <span class="filename">draft-vanrein-httpauth-sasl-04</span></p>
+  
+  <h1 id="rfc.abstract"><a href="#rfc.abstract">Abstract</a></h1>
+<p>Most application-level protocols standardise their authentication exchanges under the SASL framework.  HTTP has taken another course, and often ends up replicating the work to allow individual mechanisms.  This specification adopts full SASL authentication into HTTP.</p>
+<h1 id="rfc.status"><a href="#rfc.status">Status of This Memo</a></h1>
+<p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
+<p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
+<p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
+<p>This Internet-Draft will expire on September 5, 2020.</p>
+<h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
+<p>Copyright (c) 2020 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
+<p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
+
+  
+  <hr class="noprint" />
+  <h1 class="np" id="rfc.toc"><a href="#rfc.toc">Table of Contents</a></h1>
+  <ul class="toc">
+
+  	<li>1.   <a href="#rfc.section.1">Introduction</a>
+</li>
+<li>2.   <a href="#rfc.section.2">Embedding SASL in HTTP</a>
+</li>
+<ul><li>2.1.   <a href="#rfc.section.2.1">HTTP Request and Response Messages</a>
+</li>
+<li>2.2.   <a href="#rfc.section.2.2">Authentication Field Definitions</a>
+</li>
+<li>2.3.   <a href="#rfc.section.2.3">Caching Authentication Results</a>
+</li>
+</ul><li>3.   <a href="#rfc.section.3">Server-Side User Name</a>
+</li>
+<li>4.   <a href="#rfc.section.4">Authentication Session Example</a>
+</li>
+<li>5.   <a href="#rfc.section.5">Security Considerations</a>
+</li>
+<li>6.   <a href="#rfc.section.6">IANA Considerations</a>
+</li>
+<li>7.   <a href="#rfc.references">References</a>
+</li>
+<ul><li>7.1.   <a href="#rfc.references.1">Normative References</a>
+</li>
+<li>7.2.   <a href="#rfc.references.2">Informative References</a>
+</li>
+</ul><li>Appendix A.   <a href="#rfc.appendix.A">HTTP Server Environment Variables</a>
+</li>
+<li>Appendix B.   <a href="#rfc.appendix.B">Acknowledgements</a>
+</li>
+<li><a href="#rfc.authors">Author's Address</a>
+</li>
+
+
+  </ul>
+
+  <h1 id="rfc.section.1">
+<a href="#rfc.section.1">1.</a> <a href="#intro" id="intro">Introduction</a>
+</h1>
+<p id="rfc.section.1.p.1">HTTP has historically followed its own path for client authentication, while many other end-user protocols standardised on SASL; examples of SASL protocols include SMTP, IMAP, POP, XMPP, LDAP, AMQP and MQTT.  This specification introduces SASL to HTTP, so it may share in past and future work done for SASL in general.</p>
+<p id="rfc.section.1.p.2">Among the work that could be shared is backend authentication integration, which is possible due to protocol-independent SASL exchanges for any given method, making it easy to take them out of one protocol and inserting them into another.  Although HTTP has adopted several SASL-compatible authentication methods, it uses various notations and so it still needs method-specific support at the HTTP level to translate them to a SASL backend.</p>
+<p id="rfc.section.1.p.3">In front-ends, a similar situation has arisen.  The varying syntaxes for authentication methods have made it difficult to rely on support in most or all HTTP clients.  When such clients could externalise their SASL handling to generic software such as a SASL library, then any extension to a library automatically spills over into the HTTP sphere.  It is common for developers of web clients to also produce email clients, so a shared code base (and credential store) is not difficult to imagine.</p>
+<p id="rfc.section.1.p.4">Sharing of authentication mechanisms is beneficial in both directions.  HTTP benefits by being able to use anything from strong password mechanisms <a href="#RFC5802" class="xref">[RFC5802]</a> without explicit support <a href="#RFC7804" class="xref">[RFC7804]</a> in applications, up to GS2 mechanisms <a href="#RFC5801" class="xref">[RFC5801]</a> with channel binding <a href="#RFC5056" class="xref">[RFC5056]</a> <a href="#RFC5554" class="xref">[RFC5554]</a> to TLS <a href="#RFC5929" class="xref">[RFC5929]</a> based on pinning either the certificate for the TLS server or even a unique part of the individual TLS connection; for instance Kerberos5 <a href="#RFC4120" class="xref">[RFC4120]</a> currently uses Negotiate authentication <a href="#RFC4559" class="xref">[RFC4559]</a> which is not as secure as GS2-KRB5-PLUS over SASL.</p>
+<p id="rfc.section.1.p.5">SASL also benefits; had it been the norm for HTTP, then the work to pass SAML over it <a href="#RFC6595" class="xref">[RFC6595]</a> would probably have been done immediately.  In fact, HTTP can still benefit from receiving standardised SAML20 inquiries over SASL, because it resolves the need for configuration of initiation paths and practices.  Also, it removes authentication data from URIs, where they are not ideally placed.</p>
+<p id="rfc.section.1.p.6">In terms of security for HTTP applications, it appears beneficial to have very good authentication capabilities in the layers below the application; this is specifically true for applications developed in HTML and JavaScript, which tend to load code from various places, including code that is not always in the end user's interest; since it already is a concern what identity information passes through these applications, it is not advisable to use credentials in those places.  The HTTP layer is in a better position to take control over these assets, at the protocol levels of HTTP and TLS, and conceal credentials and possibly also identity from applications running on top.  Inasfar as tokens are needed, they can be derived from session keys using generally accepted key derivation schemes, but the session keys can be isolated from dynamic layers above HTTP.</p>
+<h1 id="rfc.section.2">
+<a href="#rfc.section.2">2.</a> <a href="#spec" id="spec">Embedding SASL in HTTP</a>
+</h1>
+<p id="rfc.section.2.p.1">This specification integrates the SASL framework <a href="#RFC4422" class="xref">[RFC4422]</a> into mainstream HTTP <a href="#RFC7231" class="xref">[RFC7231]</a>, <a href="#RFC7232" class="xref">[RFC7232]</a>.  The SASL Authentication scheme follows the general structure for HTTP Authentication <a href="#RFC7235" class="xref">[RFC7235]</a>.  It uses the WWW-Authenticate and Proxy-Authenticate headers in responses from web servers and web proxies, respectively, and correspondingly the Authorization and Proxy-Authorization request header to answer to requests.</p>
+<p id="rfc.section.2.p.2">The SASL service name for the following embedding of SASL is HTTP; contrary to most other service names, it is spelled in uppercase, in line with what has become general practice in Kerberos and GSSAPI.</p>
+<p id="rfc.section.2.p.3">Since SASL prescribes channel binding to occur relative to TLS instead of to the application protocol, we can add that when the HTTPS transport is used.    Whether channel binding is used SHOULD remain a configuration choice in HTTP software, as it might interfere with intentional HTTPS proxying.  Unintended proxying on the other hand, might lead to tapping of credentials under certain SASL mechanisms, and it may be considered helpful to prevent such situations by relying on channel binding for at least those mechanisms.</p>
+<h1 id="rfc.section.2.1">
+<a href="#rfc.section.2.1">2.1.</a> <a href="#reqresp" id="reqresp">HTTP Request and Response Messages</a>
+</h1>
+<p id="rfc.section.2.1.p.1">This section defines a few names for HTTP request and response messages, to be used in the remainder of this specification.</p>
+<p id="rfc.section.2.1.p.2">Initial Responses are HTTP responses that normally set a status code 401 or 407, and that are sent when the HTTP server decides to initiate an authentication exchange.  In addition, the server MAY send Initial Responses in other responses, to indicate to the client that it MAY try again to achieve better results [Section 4.1 of <a href="#RFC7235" class="xref">[RFC7235]</a>].</p>
+<p id="rfc.section.2.1.p.3">Initial Requests are those HTTP requests that a client sends to initiate a fresh SASL authentication.  The identity SHOULD be selected by the user independently from the URI; prior settings MAY however be remembered by a client for the combination of resource authority (scheme, host and possibly a separately communicated resource user name) with the server-sent realm string.  The server can support a mixture of client identities for various roles or access levels through variation of realm strings.  There is no current practice of server-side resource names in HTTP, but the generic URI schema presents this logic and it is easy to imagine an HTTP User header that a client could support.</p>
+<p id="rfc.section.2.1.p.4">Intermediate Responses are HTTP responses to SASL authentication, with a status code set to 401 or 407.  Intermediate Requests are those HTTP requests that a client sends to continue a SASL authentication after an Intermediate Response.</p>
+<p id="rfc.section.2.1.p.5">Positive Responses set a 200 status code to depict success.  Information in this response is provided in an Authentication-Info or Proxy-Authentication-Info header <a href="#RFC7615" class="xref">[RFC7615]</a> instead of the headers used in Initial Responses and Intermediate Responses <a href="#RFC7235" class="xref">[RFC7235]</a>.  Proper interpretation of a Positive Response requires client state indicating that SASL authentication was used, or else the optional fields are not completely reliable information sources; cryptographic markers in the c2c field MAY be used to overcome this in a manner that defies abuse by rogue servers.</p>
+<p id="rfc.section.2.1.p.6">Negative Responses also set a 401 or 407 status code and will often return the client to an earlier state that it recognises as one it has tried before.  These responses should therefore offer authentication to start again.  In contrast to the Initial Response, there is now a c2c field that helps the client evaluate the request.</p>
+<p id="rfc.section.2.1.p.7">The following fields, defined in upcoming sections, MUST and MAY be present in HTTP authentication exchanges for SASL:</p>
+<pre>
+Request or Response   | MUST have fields    | MAY have fields
+----------------------+---------------------+----------------------
+Initial Response      |     s2s,mech        |     realm
+Initial Request       | c2c,s2s,mech        | c2s,realm
+Intermediate Response | c2c,s2s             | s2c
+Intermediate Request  | c2c,s2s             | c2s
+Positive Response     | c2c                 | s2s
+Negative Response     | c2c,s2s,mech        |     realm
+</pre>
+<h1 id="rfc.section.2.2">
+<a href="#rfc.section.2.2">2.2.</a> <a href="#sasldata" id="sasldata">Authentication Field Definitions</a>
+</h1>
+<p id="rfc.section.2.2.p.1">Data for SASL is transported in the following fields: </p>
+
+<dl>
+<dt>c2s</dt>
+<dd style="margin-left: 6">holds SASL token data from client to server.  This field is transmitted with base64 encoding.  The field is absent when the SASL client sends no token.</dd>
+<dt>s2c</dt>
+<dd style="margin-left: 6">holds SASL token data from server to client.  This field is transmitted with base64 encoding.  The field is absent when the SASL server sends no token.</dd>
+<dt>s2s</dt>
+<dd style="margin-left: 6">holds opaque server data which the client MUST reflect in Intermediate Requests.  This is a necessity for a stateless HTTP Authentication framework [Section 5.1.2 of <a href="#RFC7235" class="xref">[RFC7235]</a>].  It MAY be used in a Positive Response to pass a cacheable <a href="#cache" class="xref">Section 2.3</a> authentication token.</dd>
+<dt>c2c</dt>
+<dd style="margin-left: 6">holds opaque client data which the server MUST reflect in Intermediate, Positive and Negative Responses.  This can help to also make the client stateless.</dd>
+</dl>
+<p id="rfc.section.2.2.p.2">The following fields support SASL within the HTTP Authentication Framework: </p>
+
+<dl>
+<dt>realm</dt>
+<dd style="margin-left: 6">optionally names a scope of authorisation under the combination of scheme, server host name and possibly a HTTP user to implement the semantics of the generic URI username for resource selection.  The realm does not necessarily match a domain name, which is used elsewhere as a realm notation.</dd>
+<dt>mech</dt>
+<dd style="margin-left: 6">In an Initial Response, the field is filled with a space-separated list of SASL mechanism names; In an Initial Request, the client chooses one SASL mechanism name.</dd>
+</dl>
+<h1 id="rfc.section.2.3">
+<a href="#rfc.section.2.3">2.3.</a> <a href="#cache" id="cache">Caching Authentication Results</a>
+</h1>
+<p id="rfc.section.2.3.p.1">When an HTTP server sends a Positive Response, it MAY include an "s2s" field.  If it does this, then it should be prepared to accept the field value for authentication in an Initial Request.  However, credentials can expire or fall in disgrace for other reasons, so the server MAY still choose to reject the provided field.</p>
+<p id="rfc.section.2.3.p.2">When an HTTP client receives a Positive Response with an "s2s" field, it MAY memorise the fields for future reuse in an Initial Request, either with or without preceding Initial Response from the server.  The HTTP client MUST use the realm as part of the decision which cached result to use, but it MAY extrapolate the results from one resource retrieval in an attempt to authenticate another.</p>
+<p id="rfc.section.2.3.p.3">When cached fields result in a Negative Response then the HTTP client SHOULD remove the failing cache entry, and it SHOULD try again by going through a full SASL authentication cycle.  The stateless nature of HTTP authentication is helpful in the sense that a new Initial Request can be sent to an older Initial Response.</p>
+<h1 id="rfc.section.3">
+<a href="#rfc.section.3">3.</a> <a href="#user" id="user">Server-Side User Name</a>
+</h1>
+<p id="rfc.section.3.p.1">HTTP does not define a mechanism to specifically select the user as an authoritative resource name space on the server.  Local syntax conventions exist, but lack universally reliable semantics.  Basic authentication has been used to this effect, but this conflates the client identity with the server-side name space, which is not necessarily the same.</p>
+<pre>
+User = *( unreserved / pct-encoded / sub-delims )
+</pre>
+<p id="rfc.section.3.p.2">To allow HTTP servers to zoom in on user-specific information, the User header is hereby introduced.  Its syntax matches the userinfo part of a URI, up to but excluding any colons in it: </p>
+<p id="rfc.section.3.p.3">The User header MAY be sent by clients, and HTTP servers MAY ignore it for any reason, including local user identities that do not comply to a more restrictive local user name syntax.</p>
+<p id="rfc.section.3.p.4">When an HTTP server makes use of the User header, it MUST include a Vary header in its response, with either a single "*" in it or the name "User".  This informs caches that the response must be considered specific to the User header value in the matching request.</p>
+<p id="rfc.section.3.p.5">The User header may be used with or without any form of authentication.  When used with authentication, the value of the percent-decoded header is considered part of the authority component of the resource, and therefore of the naming scope for the realm.  Clients can use this refined notion of realm to select an authentication identity; when the value is known early enough, this may even help to select an X.509 client certificate.  Note that the User header might be used together with the aforementioned practice of Basic authentication, but it can also replace it with an even simpler mechanism to free up the authentication exchange for HTTP SASL.</p>
+<p id="rfc.section.3.p.6">The distinction of a client-side user from a server-side user can benefit the use of credential schemes that are not tied to the HTTP server.  A specific example of this is the current work on realm crossover with GS2-SXOVER-PLUS.  The use of such a mechanism may offload security concerns from the application layer. </p>
+<h1 id="rfc.section.4">
+<a href="#rfc.section.4">4.</a> Authentication Session Example</h1>
+<p id="rfc.section.4.p.1">This section is non-normative.</p>
+<pre>
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: SASL
+    realm="members only"
+    mech="SCRAM-SHA-256 SCRAM-SHA-256-PLUS
+          SCRAM-SHA-1 SCRAM-SHA-1-PLUS
+          GS2-KRB5-PLUS GS2-KRB5",
+    s2s=[xxxxx]
+</pre>
+<p id="rfc.section.4.p.2">When an HTTP server receives a request for a protected page, it will send an Initial Response to ask for authentication with a special status code 401; for proxy access that would be 407, and header names change accordingly.  Stripped down to the bare essentials, the server sends (this section adds whitespace for clarity) </p>
+<p id="rfc.section.4.p.3">The server might have additionally offered the ANONYMOUS mechanism to allow the client to select "guest mode" access; the interaction would continue as authenticated, but presumably with limited access to HTTP resources and continued WWW-Authenticate headers to continue to offer authentication to improve resource information content.  The server might have offered EXTERNAL to allow the client to incorporate a TLS credential for authentication and possibly change to an authorization identity.  The server might have offered GS2-SXOVER-PLUS if it is willing to connect to the client's home realm over Diameter, and thereby support realm crossover of SASL credentials.</p>
+<pre>
+Authorization: SASL
+    realm="members only"
+    mech="SCRAM-SHA-256-PLUS",
+    c2s=[n,,n=user,r=rOprNGfwEbeRWgbNEkqO],
+    s2s=[xxxxx],
+    c2c=[qqqqq]
+</pre>
+<p id="rfc.section.4.p.4">The client initiates the SCRAM-SHA-256-PLUS mechanism, and to that end sends an Initial Request (this section shows square brackets instead of base64-encoding) </p>
+<pre>
+HTTP/1.1 401 Unauthorized
+WWW-Authentication: SASL
+    s2c=[r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxF
+         Ilj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,
+         i=4096]
+    s2s=[yyyyy],
+    c2c=[qqqqq]
+</pre>
+<p id="rfc.section.4.p.5">The SCRAM mechanism implementation is now initiated with the c2s token, and the server produces a followup challenge in a s2c token.  To be able to validate future client messages against server-side state, it includes such state in an s2s token.  This token is presumably protected from abuse with a signature and/or encryption, and it would likely identify the selected mechanism to validate during later rounds.  The server packs all this in an Intermediate Response </p>
+<p id="rfc.section.4.p.6">Given that all server state is contained in this message, the client is free at any time to give up authentication and perhaps try another method.  Normally however, it would proceed with the ongoing transaction.  The client bounces state through the server in the c2c token, though it could be empty if a client manages state locally.  Complex services however, would prefer the added signing and/or encryption of c2c in return for the benefit of decoupling the request/response state from the network connection.</p>
+<pre>
+Authorization: SASL
+    c2s=[c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hN
+         lF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=]
+    s2s=[yyyyy],
+    c2c=[rrrrr]
+</pre>
+<p id="rfc.section.4.p.7">The SCRAM mechanism continues with another round.  The client engages in the prescribed cryptographic computations and packs an Intermediate Request along with updated state in the new c2c token </p>
+<pre>
+HTTP/1.1 200 OK
+WWW-Authentication: SASL
+    s2c=[v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=]
+    s2s=[zzzzz],
+    c2c=[rrrrr]
+</pre>
+<p id="rfc.section.4.p.8">When the client has performed authentication properly, as determined by a server-side check of the c2s response token with the prior state in the s2s token, it can send a Positive Response along with the requested resource </p>
+<pre>
+Authorization: SASL
+    realm="members only"
+    s2s=[zzzzz],
+    c2c=[sssss]
+</pre>
+<p id="rfc.section.4.p.9">The s2s token in a Positive Response is an optional extension.  It is presented by the server to allow the client to speed up authentication in future requests.  The client may send it whenever the server asks for the same realm string under the same scheme and authority; the client may make proactive assumpions about the realm string for new requests.  Authentication must never be reused in another context than bound by channel binding.  When used, the client immediate sends an Intermediate Response holding </p>
+<p id="rfc.section.4.p.10">The server always has an option to refuse repeated authentication and forcing the client into a new authentication round.  One reason for this could be that a session timed out.  Another might be that the client is trying to use a credential outside a scope set by channel binding.</p>
+<h1 id="rfc.section.5">
+<a href="#rfc.section.5">5.</a> Security Considerations</h1>
+<p id="rfc.section.5.p.1">It is not generally safe for SASL mechanisms to exchange c2s and s2c messages over unprotected transports.  Furthermore, the SASL exchange may be at risk of tampering when the sequence of HTTP messages is not secured to form one stream.  This means that a secure transport layer must be used, like TLS.  The termination of such a secure layer MUST also terminate any ongoing SASL handshakes.</p>
+<p id="rfc.section.5.p.2">The c2c and s2s fields MUST be protected against tampering by rogue peers, and such protection also protects against tampering by rogue intermediates when using an unprotected transport.  In addition, but dependent on the mechanism used, the c2c and s2s fields may also need encryption to conceal their data from peers and intermediates.</p>
+<p id="rfc.section.5.p.3">SASL EXTERNAL can be a very efficient mechanism to combine with a secure transport layer if that includes authentication.  This may be the case for TLS, especially when client-side authentication is deployed.  Mechanisms other than EXTERNAL should take into account that a relation may exist between identities negotiated in the protective layer and the SASL exchange over HTTP.  For example, a login account may be exchanged for an alias or group identity.</p>
+<p id="rfc.section.5.p.4">Channel binding is available in some SASL mechanisms.  When used with HTTP SASL over TLS, it binds to the TLS channel, by default using the type tls-unique [Section 3 of <a href="#RFC5929" class="xref">[RFC5929]</a>].  When doing so, it is vital that either there be no renegotiation of the TLS handshake, or both secure renegotiation <a href="#RFC5746" class="xref">[RFC5746]</a> and the extended master secret <a href="#RFC7627" class="xref">[RFC7627]</a> are used.</p>
+<p id="rfc.section.5.p.5">The User header field as defined herein is orthogonal to issues of authentication and authorisation, and adds no security concerns.</p>
+<h1 id="rfc.section.6">
+<a href="#rfc.section.6">6.</a> IANA Considerations</h1>
+<p id="rfc.section.6.p.1">This specification extends the "Hypertext Transfer Protocol (HTTP) Authentication Scheme Registry" with an "Authentication Scheme Name" SASL, referencing this specification.</p>
+<pre>
+Service Name: HTTP
+Usage:        Web authentication using the SASL framework
+Reference:    TBD:this specification
+</pre>
+<p id="rfc.section.6.p.2">This specification defines an additional entry in the registry "Generic Security Service Application Program Interface (GSSAPI)/Kerberos/Simple Authentication and Security Layer (SASL) Service Names" namely: </p>
+<pre>
+Header Field Name   Template   Protocol   Status    Reference
+------------------  ---------  ---------  -------   ----------
+User                           http       TBD       TBD:THIS_SPEC
+</pre>
+<p id="rfc.section.6.p.3">Please add the following entry to the Message Headers registry: </p>
+<h1 id="rfc.references">
+<a href="#rfc.references">7.</a> References</h1>
+<h1 id="rfc.references.1">
+<a href="#rfc.references.1">7.1.</a> Normative References</h1>
+<table><tbody>
+<tr>
+<td class="reference"><b id="RFC3986">[RFC3986]</b></td>
+<td class="top">
+<a>Berners-Lee, T.</a>, <a>Fielding, R.</a> and <a>L. Masinter</a>, "<a href="https://tools.ietf.org/html/rfc3986">Uniform Resource Identifier (URI): Generic Syntax</a>", STD 66, RFC 3986, DOI 10.17487/RFC3986, January 2005.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC4120">[RFC4120]</b></td>
+<td class="top">
+<a>Neuman, C.</a>, <a>Yu, T.</a>, <a>Hartman, S.</a> and <a>K. Raeburn</a>, "<a href="https://tools.ietf.org/html/rfc4120">The Kerberos Network Authentication Service (V5)</a>", RFC 4120, DOI 10.17487/RFC4120, July 2005.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC4422">[RFC4422]</b></td>
+<td class="top">
+<a>Melnikov, A.</a> and <a>K. Zeilenga</a>, "<a href="https://tools.ietf.org/html/rfc4422">Simple Authentication and Security Layer (SASL)</a>", RFC 4422, DOI 10.17487/RFC4422, June 2006.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC4559">[RFC4559]</b></td>
+<td class="top">
+<a>Jaganathan, K.</a>, <a>Zhu, L.</a> and <a>J. Brezak</a>, "<a href="https://tools.ietf.org/html/rfc4559">SPNEGO-based Kerberos and NTLM HTTP Authentication in Microsoft Windows</a>", RFC 4559, DOI 10.17487/RFC4559, June 2006.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5056">[RFC5056]</b></td>
+<td class="top">
+<a>Williams, N.</a>, "<a href="https://tools.ietf.org/html/rfc5056">On the Use of Channel Bindings to Secure Channels</a>", RFC 5056, DOI 10.17487/RFC5056, November 2007.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5554">[RFC5554]</b></td>
+<td class="top">
+<a>Williams, N.</a>, "<a href="https://tools.ietf.org/html/rfc5554">Clarifications and Extensions to the Generic Security Service Application Program Interface (GSS-API) for the Use of Channel Bindings</a>", RFC 5554, DOI 10.17487/RFC5554, May 2009.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5746">[RFC5746]</b></td>
+<td class="top">
+<a>Rescorla, E.</a>, <a>Ray, M.</a>, <a>Dispensa, S.</a> and <a>N. Oskov</a>, "<a href="https://tools.ietf.org/html/rfc5746">Transport Layer Security (TLS) Renegotiation Indication Extension</a>", RFC 5746, DOI 10.17487/RFC5746, February 2010.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5801">[RFC5801]</b></td>
+<td class="top">
+<a>Josefsson, S.</a> and <a>N. Williams</a>, "<a href="https://tools.ietf.org/html/rfc5801">Using Generic Security Service Application Program Interface (GSS-API) Mechanisms in Simple Authentication and Security Layer (SASL): The GS2 Mechanism Family</a>", RFC 5801, DOI 10.17487/RFC5801, July 2010.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5929">[RFC5929]</b></td>
+<td class="top">
+<a>Altman, J.</a>, <a>Williams, N.</a> and <a>L. Zhu</a>, "<a href="https://tools.ietf.org/html/rfc5929">Channel Bindings for TLS</a>", RFC 5929, DOI 10.17487/RFC5929, July 2010.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC6595">[RFC6595]</b></td>
+<td class="top">
+<a>Wierenga, K.</a>, <a>Lear, E.</a> and <a>S. Josefsson</a>, "<a href="https://tools.ietf.org/html/rfc6595">A Simple Authentication and Security Layer (SASL) and GSS-API Mechanism for the Security Assertion Markup Language (SAML)</a>", RFC 6595, DOI 10.17487/RFC6595, April 2012.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7231">[RFC7231]</b></td>
+<td class="top">
+<a>Fielding, R.</a> and <a>J. Reschke</a>, "<a href="https://tools.ietf.org/html/rfc7231">Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content</a>", RFC 7231, DOI 10.17487/RFC7231, June 2014.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7232">[RFC7232]</b></td>
+<td class="top">
+<a>Fielding, R.</a> and <a>J. Reschke</a>, "<a href="https://tools.ietf.org/html/rfc7232">Hypertext Transfer Protocol (HTTP/1.1): Conditional Requests</a>", RFC 7232, DOI 10.17487/RFC7232, June 2014.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7235">[RFC7235]</b></td>
+<td class="top">
+<a>Fielding, R.</a> and <a>J. Reschke</a>, "<a href="https://tools.ietf.org/html/rfc7235">Hypertext Transfer Protocol (HTTP/1.1): Authentication</a>", RFC 7235, DOI 10.17487/RFC7235, June 2014.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7615">[RFC7615]</b></td>
+<td class="top">
+<a>Reschke, J.</a>, "<a href="https://tools.ietf.org/html/rfc7615">HTTP Authentication-Info and Proxy-Authentication-Info Response Header Fields</a>", RFC 7615, DOI 10.17487/RFC7615, September 2015.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7627">[RFC7627]</b></td>
+<td class="top">
+<a>Bhargavan, K.</a>, <a>Delignat-Lavaud, A.</a>, <a>Pironti, A.</a>, <a>Langley, A.</a> and <a>M. Ray</a>, "<a href="https://tools.ietf.org/html/rfc7627">Transport Layer Security (TLS) Session Hash and Extended Master Secret Extension</a>", RFC 7627, DOI 10.17487/RFC7627, September 2015.</td>
+</tr>
+</tbody></table>
+<h1 id="rfc.references.2">
+<a href="#rfc.references.2">7.2.</a> Informative References</h1>
+<table><tbody>
+<tr>
+<td class="reference"><b id="I-D.vanrein-dnstxt-krb1">[I-D.vanrein-dnstxt-krb1]</b></td>
+<td class="top">
+<a>Rein, R.</a>, "<a href="https://tools.ietf.org/html/draft-vanrein-dnstxt-krb1-09">Declaring Kerberos Realm Names in DNS (_kerberos TXT)</a>", Internet-Draft draft-vanrein-dnstxt-krb1-09, October 2016.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC2617">[RFC2617]</b></td>
+<td class="top">
+<a>Franks, J.</a>, <a>Hallam-Baker, P.</a>, <a>Hostetler, J.</a>, <a>Lawrence, S.</a>, <a>Leach, P.</a>, <a>Luotonen, A.</a> and <a>L. Stewart</a>, "<a href="https://tools.ietf.org/html/rfc2617">HTTP Authentication: Basic and Digest Access Authentication</a>", RFC 2617, DOI 10.17487/RFC2617, June 1999.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC4505">[RFC4505]</b></td>
+<td class="top">
+<a>Zeilenga, K.</a>, "<a href="https://tools.ietf.org/html/rfc4505">Anonymous Simple Authentication and Security Layer (SASL) Mechanism</a>", RFC 4505, DOI 10.17487/RFC4505, June 2006.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC5802">[RFC5802]</b></td>
+<td class="top">
+<a>Newman, C.</a>, <a>Menon-Sen, A.</a>, <a>Melnikov, A.</a> and <a>N. Williams</a>, "<a href="https://tools.ietf.org/html/rfc5802">Salted Challenge Response Authentication Mechanism (SCRAM) SASL and GSS-API Mechanisms</a>", RFC 5802, DOI 10.17487/RFC5802, July 2010.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7804">[RFC7804]</b></td>
+<td class="top">
+<a>Melnikov, A.</a>, "<a href="https://tools.ietf.org/html/rfc7804">Salted Challenge Response HTTP Authentication Mechanism</a>", RFC 7804, DOI 10.17487/RFC7804, March 2016.</td>
+</tr>
+</tbody></table>
+<h1 id="rfc.appendix.A">
+<a href="#rfc.appendix.A">Appendix A.</a> <a href="#envvars" id="envvars">HTTP Server Environment Variables</a>
+</h1>
+<p id="rfc.section.A.p.1">We define a number of variables that SHOULD be passed from an HTTP SASL stack (and from User header processing) to applications run on top of it.  The intention of defining these is to obtain maximum interoperability between these layers of software.</p>
+<p id="rfc.section.A.p.2">The following variables MUST NOT be available until SASL authentication is successful; it would be available when the server could send a 200 OK response: </p>
+
+<dl>
+<dt>SASL_SECURE</dt>
+<dd style="margin-left: 6">is only "yes" (without the quotes) when a client is authenticated to the current resource.  It never has another value; it is simply undefined when not secured by SASL.</dd>
+<dt>SASL_REALM</dt>
+<dd style="margin-left: 6">is the realm for which the secure exchange succeeded.  A realm is not always used, because sites only need it when there are more than one in the same name space.  When undefined in the SASL flow, this variable will not be set.</dd>
+<dt>REMOTE_USER</dt>
+<dd style="margin-left: 6">is the client identity as confirmed through SASL authentication.  Its content is formatted like an email address, and includes a domain name.  That domain need not be related to the web server; it is possible for a web server to welcome foreign clients.</dd>
+<dt>SASL_MECH</dt>
+<dd style="margin-left: 6">indicates the mechanism used, and is one of the standardised SASL mechanism names.  It may be used to detect the level of security.</dd>
+<dt>SASL_S2S</dt>
+<dd style="margin-left: 6">holds the accepted s2s field, and could be used as a random session identifier.  It would normally be encrypted information.</dd>
+<dt>SASL_S2S_</dt>
+<dd style="margin-left: 6">is a prefix for extra information that the server may extract from the s2s field in the HTTP SASL protocol flow.  This depends on the authentication stack used in the web server.</dd>
+</dl>
+<p id="rfc.section.A.p.3">The following variable SHOULD be available while processing a request with a User header with locally acceptable syntax: </p>
+
+<dl>
+<dt>LOCAL_USER</dt>
+<dd style="margin-left: 6">gives the HTTP User header value after syntax checking and percent-decoding.  If used at all, it MUST be treated as a resource name space selector.  This header does not describe the authenticated client identity, which is usually passed in a variable REMOTE_USER.</dd>
+</dl>
+<h1 id="rfc.appendix.B">
+<a href="#rfc.appendix.B">Appendix B.</a> <a href="#ack" id="ack">Acknowledgements</a>
+</h1>
+<p id="rfc.section.B.p.1">Thanks to Henri Manson for making the first implementation of this specification and for feedback on the header formats.  The specification also benefited from input by Daniel Stenberg.</p>
+<h1 id="rfc.authors"><a href="#rfc.authors">Author's Address</a></h1>
+<div class="avoidbreak">
+  <address class="vcard">
+	<span class="vcardline">
+	  <span class="fn">Rick van Rein</span> 
+	  <span class="n hidden">
+		<span class="family-name">Van Rein</span>
+	  </span>
+	</span>
+	<span class="org vcardline">ARPA2.net</span>
+	<span class="adr">
+	  <span class="vcardline">Haarlebrink 5</span>
+
+	  <span class="vcardline">
+		<span class="locality">Enschede</span>,  
+		<span class="region">Overijssel</span> 
+		<span class="code">7544 WP</span>
+	  </span>
+	  <span class="country-name vcardline">The Netherlands</span>
+	</span>
+	<span class="vcardline">EMail: <a href="mailto:rick@openfortress.nl">rick@openfortress.nl</a></span>
+
+  </address>
+</div>
+
+</body>
+</html>

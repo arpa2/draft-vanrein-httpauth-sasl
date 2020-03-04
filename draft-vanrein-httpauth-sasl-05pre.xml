@@ -1,0 +1,741 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<?rfc toc="yes" ?>
+<?rfc compact="yes" ?>
+<?rfc symrefs="yes" ?>
+<?rfc subcompact="no" ?>
+<?rfc comments="yes" ?>
+<?rfc inline="yes" ?>
+
+<rfc ipr="trust200902" docName="draft-vanrein-httpauth-sasl-05" category="std">
+
+<front>
+
+	<title abbrev="HTTP SASL">HTTP Authentication with SASL</title>
+
+	<author initials="R" surname="Van Rein" fullname="Rick van Rein">
+		<organization>ARPA2.net</organization>
+		<address>
+			<postal>
+				<street>Haarlebrink 5</street>
+				<city>Enschede</city>
+				<region>Overijssel</region>
+				<code>7544 WP</code>
+				<country>The Netherlands</country>
+			</postal>
+			<email>rick@openfortress.nl</email>
+		</address>
+	</author>
+
+	<date day="4" month="March" year="2200"/>
+
+	<abstract>
+	<t>Most application-level protocols standardise their authentication
+	exchanges under the SASL framework.  HTTP has taken another course, and
+	often ends up replicating the work to allow individual mechanisms.
+	This specification adopts full SASL authentication into HTTP.</t>
+	</abstract>
+
+<!--
+
+CHANGES FROM 04 TO 05:
+
+
+CHANGES FROM 03 TO 04:
+ * Made the "realm" field optional; that is what RFC 7235 seems to suggest
+ * Removed the "text" field; it is not SASL-specific; could be a security risk
+ * Fields c2s and s2c are base64-encoded and are absent in lieu of a SASL token
+ * Dropped userview= to make it an orthogonal HTTP User: header
+ * Added an example run (that was a very useful suggestion!)
+ * Confirmed the Authentication-Info header in the Final 200 Response
+ * Changed envvar SASL_CLIENTID to the customary name REMOTE_USER
+ * Replaced 403 Forbidden with a repeated response asking for authentication
+ * Renamed Final 200 to Positive Response, Final 403 to Negative Response
+
+CHANGES FROM 02 TO 03:
+ * Less repeating of variables (mech)
+ * No reporting of name to HTTP client
+ * Removal of references to realm crossover
+ * Caching for Final 200 Responses
+ * Additional c2c information in Final 407 Responses
+
+CHANGES FROM 01 TO 02:
+ * Removed encryption including the descriptive fields: encalg/enckid
+ * Introduced references to end-to-end SASL encryption with SXOVER
+ * Dropped the "visitor" field (but keep the "userview")
+ * Replace references to "realm crossover"
+
+CHANGES FROM 00 TO 01:
+ * Explanation of channel binding and its relation to (un)intended proxying
+ * User-Aware made orthogonal, but incorporated as SASL userview=
+ * Support for backends through end-to-end encryption of SASL: encalg/enckid field
+ * Drop choice dimension in c2c/c2s/s2c/s2s - - - do not reply c2s, s2c
+ * TODO: Explain protocol development, not just the messages used
+ * Introduce the "User-Aware" intention and, most importantly, the messages
+
+CHANGES FROM pre-00 to 00:
+ * Adapted the specification to RFC 7235 instead of RFC 2617
+ * Introduced c2c, s2s, c2s, s2c and their corresponding generic rules
+ * Added examples for SASL EXTERNAL, ANONYMOUS, SCRAM-SHA-1, GSSAPI
+ * Renamed from a draft-vanrein-kitten-sasl to draft-vanrein-httpauth-sasl
+ * Added public user pages http://user@www.example.com via SASL ANONYMOUS
+ * Introduced channel binding in the SASL default, so directly to TLS
+
+-->
+
+</front>
+
+
+<middle>
+
+<section title="Introduction" anchor="intro">
+
+<t>HTTP has historically followed its own path for client authentication,
+while many other end-user protocols standardised on SASL;
+examples of SASL protocols include SMTP, IMAP, POP, XMPP, LDAP, AMQP and MQTT.
+This specification introduces SASL to HTTP, so it may share in
+past and future work done for SASL in general.</t>
+
+<t>Among the work that could be shared is backend authentication integration,
+which is possible due to protocol-independent SASL exchanges for any given
+method, making it easy to take them out of one protocol and inserting them
+into another.  Although HTTP has adopted several SASL-compatible authentication
+methods, it uses various notations and so it still needs method-specific
+support at the HTTP level to translate them to a SASL backend.</t>
+
+<t>In front-ends, a similar situation has arisen.  The varying syntaxes
+for authentication methods have made it difficult to rely on support in
+most or all HTTP clients.  When such clients could externalise their
+SASL handling to generic software such as a SASL library, then any extension
+to a library automatically spills over into the HTTP sphere.  It is common
+for developers of web clients to also produce email clients, so a shared
+code base (and credential store) is not difficult to imagine.</t>
+
+<t>Sharing of authentication mechanisms is beneficial in both directions.
+HTTP benefits by being able to use anything from
+strong password mechanisms <xref target="RFC5802"/> without explicit
+support <xref target="RFC7804"/> in applications,
+up to GS2 mechanisms <xref target="RFC5801"/>
+with channel binding <xref target="RFC5056"/> <xref target="RFC5554"/>
+to TLS <xref target="RFC5929"/>
+based on pinning either the certificate for the TLS server or even a
+unique part of the individual TLS connection; for instance Kerberos5
+<xref target="RFC4120"/>
+currently uses Negotiate authentication <xref target="RFC4559"/> which is not
+as secure as GS2-KRB5-PLUS over SASL.</t>
+
+<t>SASL also benefits; had it been the norm for HTTP,
+then the work to pass SAML over it <xref target="RFC6595"/> would
+probably have been done immediately.  In fact, HTTP can still benefit from
+receiving standardised SAML20 inquiries over SASL, because it resolves the
+need for configuration of initiation paths and practices.  Also, it removes
+authentication data from URIs, where they are not ideally placed.</t>
+
+<!-- <t>TODO: Does this do justice to current SAML over HTTP?</t> -->
+
+<!-- POLITICAL SUICIDE: -->
+<t>In terms of security for HTTP applications, it appears beneficial to
+have very good authentication capabilities in the layers below the
+application; this is specifically true for applications developed in
+HTML and JavaScript, which tend to load code from various places,
+including code that is not always in the end user's interest; since it
+already is a concern what identity information passes through these
+applications, it is not advisable to use credentials in those
+places.  The HTTP layer is in a better position to take control over these
+assets, at the protocol levels of HTTP and TLS, and conceal credentials
+and possibly also identity from applications running on top.  Inasfar
+as tokens are needed, they can be derived from session keys using
+generally accepted key derivation schemes, but the session keys can
+be isolated from dynamic layers above HTTP.</t>
+
+</section>
+
+<section title="Embedding SASL in HTTP" anchor="spec">
+
+<t>This specification integrates the SASL framework <xref target="RFC4422"/>
+into mainstream HTTP <xref target="RFC7231"/>, <xref target="RFC7232"/>.
+The SASL Authentication scheme follows the general structure for
+HTTP Authentication <xref target="RFC7235"/>.  It uses the WWW-Authenticate
+and Proxy-Authenticate headers in responses from web servers and web
+proxies, respectively, and correspondingly the Authorization and
+Proxy-Authorization request header to answer to requests.</t>
+
+<t>The SASL service name for the following embedding of SASL is HTTP;
+contrary to most other service names, it is spelled in uppercase,
+in line with what has become general practice in Kerberos and GSSAPI.</t>
+
+<t>Since SASL prescribes channel binding to occur relative to TLS instead
+of to the application protocol, we can add that when the HTTPS transport
+is used.  <!-- TODO:NOT_TRUE:  According to SASL, at least
+tls-unique [Section 3 of <xref target="RFC5929"/>]
+must be supported. -->  Whether channel binding is used SHOULD remain a
+configuration choice in HTTP software, as it might interfere with
+intentional HTTPS proxying.  Unintended proxying on the other hand,
+might lead to tapping of credentials under certain SASL mechanisms,
+and it may be considered helpful to prevent such situations by
+relying on channel binding for at least those mechanisms.</t>
+
+<section title="HTTP Request and Response Messages" anchor="reqresp">
+
+<t>This section defines a few names for HTTP request and response
+messages, to be used in the remainder of this specification.</t>
+
+<t>Initial Responses are HTTP responses that normally set a status code 401 or 407,
+and that are sent when the HTTP server decides to initiate an authentication
+exchange.  In addition, the server MAY send Initial Responses in other
+responses, to indicate to the client that it MAY try again to
+achieve better results [Section 4.1 of <xref target="RFC7235"/>].</t>
+
+<t>Initial Requests are those HTTP requests that a client sends to initiate
+a fresh SASL authentication.  The identity SHOULD be selected by the user
+independently from the URI; prior settings MAY however be remembered by a
+client for the combination of resource authority (scheme, host and possibly
+a separately communicated resource user name) with the server-sent realm
+string.  The server can support a mixture of client identities for various
+roles or access levels through variation of realm strings.  There is no
+current practice of server-side resource names in HTTP, but the generic
+URI schema presents this logic and it is easy to imagine an HTTP User header
+that a client could support.</t>
+
+<t>Intermediate Responses are HTTP responses to SASL authentication,
+with a status code set to 401 or 407.
+Intermediate Requests are those HTTP requests that a client sends to
+continue a SASL authentication after an Intermediate Response.</t>
+
+<t>Positive Responses set a 200 status code to depict success.  Information
+in this response is provided in an Authentication-Info or
+Proxy-Authentication-Info header
+<xref target="RFC7615"/> instead of the headers
+used in Initial Responses and Intermediate Responses <xref target="RFC7235"/>.
+Proper interpretation of a Positive Response requires client state
+indicating that SASL authentication was used, or else the optional fields are
+not completely reliable information sources; cryptographic markers in the
+c2c field MAY be used to overcome this in a manner that defies abuse by
+rogue servers.</t>
+
+<t>Negative Responses also set a 401 or 407 status code and will often
+return the client to an earlier state that it recognises as one it has
+tried before.  These responses should therefore offer authentication to
+start again.  In contrast to the Initial Response, there is now a c2c
+field that helps the client evaluate the request.</t>
+
+<t>The following fields, defined in upcoming sections, MUST and MAY be present
+in HTTP authentication exchanges for SASL:</t>
+<figure><artwork><![CDATA[
+Request or Response   | MUST have fields    | MAY have fields
+----------------------+---------------------+----------------------
+Initial Response      |     s2s,mech        |     realm
+Initial Request       | c2c,s2s,mech        | c2s,realm
+Intermediate Response | c2c,s2s             | s2c
+Intermediate Request  | c2c,s2s             | c2s
+Positive Response     | c2c                 | s2s
+Negative Response     | c2c,s2s,mech        |     realm
+]]></artwork></figure>
+<!-- Note: Used to have user,realm with Initial Response/Request -->
+
+</section>
+
+<section title="Authentication Field Definitions" anchor="sasldata">
+
+<t>Data for SASL is transported in the following fields:
+<list style="hanging" hangIndent="6">
+<t hangText="c2s">
+	holds SASL token data from client to server.
+	This field is transmitted with base64 encoding.
+	The field is absent when the SASL client sends no token.</t>
+<t hangText="s2c">
+	holds SASL token data from server to client.
+	This field is transmitted with base64 encoding.
+	The field is absent when the SASL server sends no token.</t>
+<t hangText="s2s">
+	holds opaque server data which the client MUST reflect in
+	Intermediate Requests.  This is a necessity for a stateless
+	HTTP Authentication framework
+	[Section 5.1.2 of <xref target="RFC7235"/>].  It MAY be used
+	in a Positive Response to pass a cacheable <xref target="cache"/>
+	authentication token.</t>
+<t hangText="c2c">
+	holds opaque client data which the server MUST reflect in
+	Intermediate, Positive and Negative Responses.  This can
+	help to also make the client stateless.</t>
+</list></t>
+
+<t>The following fields support SASL within the HTTP Authentication Framework:
+<list style="hanging" hangIndent="6">
+<!-- DROPPED
+<t hangText="httpuser">
+	selects a user view on the resources accessible over HTTP.
+	This data selection purpose is unrelated to authentication.
+	As a general principle, the httpuser MAY lead to changes in
+	authentication triggers for URI paths, but MUST NOT change
+	authentication triggers for the underlying resources.</t>
+-->
+<t hangText="realm">
+	optionally names a scope of authorisation under the combination
+	of scheme, server host name and possibly a HTTP user to implement
+	the semantics of the generic URI username for resource selection.
+	The realm does not necessarily match a domain name, which is used
+	elsewhere as a realm notation.</t>
+<t hangText="mech">
+	In an Initial Response, the field is filled with a
+	space-separated list of SASL mechanism names;
+	In an Initial Request, the client chooses one SASL mechanism
+	name<!--DROPPED ;
+	In a User Viewing Request, the field is fixated to
+	ANONYMOUS <xref target="RFC4505"/> if it is provided -->.</t>
+</list></t>
+
+</section>
+
+<section title="Caching Authentication Results" anchor="cache">
+
+<t>When an HTTP server sends a Positive Response, it MAY include
+an "s2s" field.  If it does this, then it should be prepared to accept
+the field value for authentication in an Initial Request.  However,
+credentials can expire or fall in disgrace for other reasons, so
+the server MAY still choose to reject the provided field.</t>
+
+<t>When an HTTP client receives a Positive Response with an
+"s2s" field, it MAY memorise the fields for future reuse in an
+Initial Request, either with or without preceding Initial Response
+from the server.  The HTTP client MUST use the realm as part of the
+decision which cached result to use, but it MAY extrapolate the
+results from one resource retrieval in an attempt to authenticate
+another.</t>
+
+<t>When cached fields result in a Negative Response then the
+HTTP client SHOULD remove the failing cache entry, and it SHOULD
+try again by going through a full SASL authentication cycle.
+The stateless nature of HTTP authentication is helpful in the
+sense that a new Initial Request can be sent to an older
+Initial Response.</t>
+
+</section>
+
+</section>
+
+
+<section title="Server-Side User Name" anchor="user">
+
+<!--
+TODO:well-known
+-->
+
+<t>HTTP does not define a mechanism to specifically select the
+user as an authoritative resource name space on the server.  Local
+syntax conventions exist, but lack universally reliable semantics.
+Basic authentication has been used to this effect, but this
+conflates the client identity with the server-side name space,
+which is not necessarily the same.</t>
+
+<t>To allow HTTP servers to zoom in on user-specific information,
+the User header is hereby introduced.  Its syntax matches the
+userinfo part of a URI, up to but excluding any colons in it:
+<figure><artwork><![CDATA[
+User = *( unreserved / pct-encoded / sub-delims )
+]]></artwork></figure>
+The value of the header MUST be percent-decoded before the
+server can use it to identify a local user.</t>
+
+<t>The User header MAY be sent by clients, and HTTP servers
+MAY ignore it for any reason, including local user identities
+that do not comply to a more restrictive local user name
+syntax.</t>
+
+<t>When an HTTP server makes use of the User header, it MUST
+include a Vary header in its response, with either a single "*"
+in it or the name "User".  This informs caches that the response
+must be considered specific to the User header value in the
+matching request.</t>
+
+<t>The User header may be used with or without any form of
+authentication.  When used with authentication, the value of
+the percent-decoded header is considered part of the authority
+component of the resource, and therefore of the naming scope
+for the realm.  Clients can use this refined notion of realm
+to select an authentication identity; when the value is known
+early enough, this may even help to select an X.509 client
+certificate.  Note that the User header might be used together
+with the aforementioned practice of Basic authentication, but
+it can also replace it with an even simpler mechanism to
+free up the authentication exchange for HTTP SASL.</t>
+
+<t>The distinction of a client-side user from a server-side
+user can benefit the use of credential schemes that are not
+tied to the HTTP server.  A specific example of this is the
+current work on realm crossover with GS2-SXOVER-PLUS.  The
+use of such a mechanism may offload security concerns from
+the application layer. </t>
+
+</section>
+
+
+
+<!-- MOOT, GIVEN THE [Proxy-]Authentication-Info HEADER, SO DROPPED
+
+<section title="The Authorized-User Header" anchor="header">
+
+<t>TODO:PROBABLYDROP</t>
+
+<t>TODO: There is already a header Authentication-Info, as well as
+Proxy-Authentication-Info, defined in RFC 7615, which holds a series
+of token=base68value definitions or more accurately, a comma-separated
+list of auth-param, defined in Section 2.1 of RFC 7235.</t>
+
+<t>This same #auth-param format can be used in the other headers.  Note that
+SASL method names fit in the base68value.  There does not seem to be
+a limitation of using the same name only once, so
+"mech=GSSAPI, mech=PLAIN" seems possible.  We do need to encode the
+state exchanged as base64, and so would a DoNAI need to be.</t>
+
+<t>This specification introduces a new header, namely Authorized-User.
+It can be used with the HTTP SASL authentication or with any other
+method of access control for HTTP.</t>
+
+<t>The header MAY be returned as part of any 200 OK response, but it is
+most useful in response to a query with an Authorization header.
+It may be used to inform the user of the identity that was eventually
+accepted during the authorisation process.  When aliases are used, this
+may differ from what was originally submitted over SASL; for example,
+it could be a canonical choice from a set of aliases.</t>
+
+<t>This header is specifically useful when the SASL EXTERNAL method is
+used, because then access control relies on information from another
+protocol layer, that may not be available to the HTTP client layer that
+needs the resulting identity but wants to present it.</t>
+
+</section>
+-->
+
+<!-- DROPPED
+
+<section title="Viewing Users on HTTP Services" anchor="httpuser">
+
+<t>The initial authentication mechanisms for HTTP were
+Basic and Digest <xref target="RFC2617"/> but these are no
+longer considered secure.  These forms used the username in
+the URI together with a password, a combination that is now
+officially deprecated [Section 3.2.1 of <xref target="RFC3986"/>].</t>
+
+<t>The use of a user name in a URI has not been deprecated,
+but has been withdrawn from HTTP because it was not included
+in the core HTTP specification <xref target="RFC2616"/>.
+With client identities that support realm crossover, it is
+possible to add this to SASL Authorization headers, through a
+new httpuser field, to be used like this:</t>
+<figure><artwork><![CDATA[
+GET / HTTP/1.1
+Host: www.example.net
+Authorization: SASL httpuser=snowboarders
+]]></artwork></figure>
+
+<t>There is a clear need for users in HTTP URIs, as can be
+seen from a wild variation of mappings into paths and
+sub-domains.  The actual use of the username part of the URI
+is however preferrable, and the URI format defines it in the
+authority part [Section 3.2 of <xref target="RFC3986"/>] which
+seems to match with the intended uses.  A URI-based user name
+will probaly still be mapped to a path on a server, but need
+not be shown in the path in the URI.  Better standardisation
+of user names is supportive of better integration with tools
+on both the client and server side.</t>
+
+<t>We emphasise that the httpuser and client identity are
+orthogonal concepts, except for the special case where the client is
+viewing his own resources.  This implies that it can be used
+with or without authentication.  The httpuser field indicates
+the name space of resources beig addressed, while the client
+identity is involved in access rights.</t>
+
+<t>The reason to integrate the httpuser with SASL is one of identity
+control; when the httpuser changes, one is visiting another part of a
+HTTP resource space, and it may then be proper to switch to another
+identity.  This is in line with the scoping of protection spaces
+[Section 2.2 of <xref target="RFC7235"/>] to combinations of URI scheme,
+URI authority section and a server-defined realm string, where the URI
+authority section includes the user name in the URI.</t>
+
+<t>Browsers currently show varying behaviours when supplied with a
+user name.  This is mostly due to the deprecation
+[Section 3.2.1 of <xref target="RFC3986"/>] of userparts with a password
+embedded.  This has created uncertainty and variation in handling of
+HTTP URIs with user names but no password.  The httpuser field is intended
+to present a constructive alternative, where user names may once more be
+used to scope the resource name space to that of a user, without saying
+anything about authentication.</t>
+
+</section>
+-->
+
+
+<section title="Authentication Session Example">
+
+<t>This section is non-normative.</t>
+
+<t>When an HTTP server receives a request for a protected page, it will send an Initial Response to ask for authentication with a special status code 401; for proxy access that would be 407, and header names change accordingly.  Stripped down to the bare essentials, the server sends (this section adds whitespace for clarity)
+<figure><artwork><![CDATA[
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: SASL
+    realm="members only"
+    mech="SCRAM-SHA-256 SCRAM-SHA-256-PLUS
+          SCRAM-SHA-1 SCRAM-SHA-1-PLUS
+          GS2-KRB5-PLUS GS2-KRB5",
+    s2s=[xxxxx]
+]]></artwork></figure>
+The server offers SCRAM-* and GS2-KRB5 mechanisms.  The variants with -PLUS provide additional channel binding, to ensure that authentication is specific to the current HTTPS connection, thus avoiding replay of the session across connections.  Clients aware of HTTP connections may use connection-specific channel binding (tls-unique) while those that abstract from the connections must resort to weaker name-based channel binding (tls-server-end-point).</t>
+
+<t>The server might have additionally offered the ANONYMOUS mechanism to allow the client to select "guest mode" access; the interaction would continue as authenticated, but presumably with limited access to HTTP resources and continued WWW-Authenticate headers to continue to offer authentication to improve resource information content.  The server might have offered EXTERNAL to allow the client to incorporate a TLS credential for authentication and possibly change to an authorization identity.  The server might have offered GS2-SXOVER-PLUS if it is willing to connect to the client's home realm over Diameter, and thereby support realm crossover of SASL credentials.</t>
+
+<t>The client initiates the SCRAM-SHA-256-PLUS mechanism, and to that end sends an Initial Request (this section shows square brackets instead of base64-encoding)
+<figure><artwork><![CDATA[
+Authorization: SASL
+    realm="members only"
+    mech="SCRAM-SHA-256-PLUS",
+    c2s=[n,,n=user,r=rOprNGfwEbeRWgbNEkqO],
+    s2s=[xxxxx],
+    c2c=[qqqqq]
+]]></artwork></figure>
+This mechanism is initiated by the client, hence the inclusion of the c2s token in the Initial Request.  The contents of this field are specific to the selected mechanism, so SCRAM-SHA-256-PLUS in this case.</t>
+
+<t>The SCRAM mechanism implementation is now initiated with the c2s token, and the server produces a followup challenge in a s2c token.  To be able to validate future client messages against server-side state, it includes such state in an s2s token.  This token is presumably protected from abuse with a signature and/or encryption, and it would likely identify the selected mechanism to validate during later rounds.  The server packs all this in an Intermediate Response
+<figure><artwork><![CDATA[
+HTTP/1.1 401 Unauthorized
+WWW-Authentication: SASL
+    s2c=[r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxF
+         Ilj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,
+         i=4096]
+    s2s=[yyyyy],
+    c2c=[qqqqq]
+]]></artwork></figure></t>
+
+<t>Given that all server state is contained in this message, the client is free at any time to give up authentication and perhaps try another method.  Normally however, it would proceed with the ongoing transaction.  The client bounces state through the server in the c2c token, though it could be empty if a client manages state locally.  Complex services however, would prefer the added signing and/or encryption of c2c in return for the benefit of decoupling the request/response state from the network connection.</t>
+
+<t>The SCRAM mechanism continues with another round.  The client engages in the prescribed cryptographic computations and packs an Intermediate Request along with updated state in the new c2c token
+<figure><artwork><![CDATA[
+Authorization: SASL
+    c2s=[c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hN
+         lF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=]
+    s2s=[yyyyy],
+    c2c=[rrrrr]
+]]></artwork></figure></t>
+
+<t>When the client has performed authentication properly, as determined by a server-side check of the c2s response token with the prior state in the s2s token, it can send a Positive Response along with the requested resource
+<figure><artwork><![CDATA[
+HTTP/1.1 200 OK
+WWW-Authentication: SASL
+    s2c=[v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=]
+    s2s=[zzzzz],
+    c2c=[rrrrr]
+]]></artwork></figure></t>
+
+<t>The s2s token in a Positive Response is an optional extension.  It is presented by the server to allow the client to speed up authentication in future requests.  The client may send it whenever the server asks for the same realm string under the same scheme and authority; the client may make proactive assumpions about the realm string for new requests.  Authentication must never be reused in another context than bound by channel binding.  When used, the client immediate sends an Intermediate Response holding
+<figure><artwork><![CDATA[
+Authorization: SASL
+    realm="members only"
+    s2s=[zzzzz],
+    c2c=[sssss]
+]]></artwork></figure></t>
+
+<t>The server always has an option to refuse repeated authentication and forcing the client into a new authentication round.  One reason for this could be that a session timed out.  Another might be that the client is trying to use a credential outside a scope set by channel binding.</t>
+
+</section>
+
+<section title="Security Considerations">
+
+<t>It is not generally safe for SASL mechanisms to
+exchange c2s and s2c messages over unprotected transports.  Furthermore,
+the SASL exchange may be at risk of tampering when the sequence of
+HTTP messages is not secured to form one stream.  This means that a
+secure transport layer must be used, like TLS.  The termination of such
+a secure layer MUST also terminate any ongoing SASL handshakes.</t>
+
+<t>The c2c and s2s fields MUST be protected against tampering by rogue
+peers, and such
+protection also protects against tampering by rogue intermediates when
+using an unprotected transport.  In addition, but dependent on the
+mechanism used, the c2c and s2s fields may also
+need encryption to conceal their data from peers and intermediates.</t>
+
+<t>SASL EXTERNAL can be a very efficient mechanism to combine with a
+secure transport layer if that includes authentication.  This may be the case
+for TLS, especially when client-side authentication is deployed.
+Mechanisms other than EXTERNAL should take into account that a relation
+may exist between identities negotiated in the protective layer and the
+SASL exchange over HTTP.  For example, a login account may be exchanged
+for an alias or group identity.</t>
+
+<t>Channel binding is available in some SASL mechanisms.  When used with
+HTTP SASL over TLS, it binds to the TLS channel, by default using the type
+tls-unique [Section 3 of <xref target="RFC5929"/>].
+When doing so, it is vital that either there be no renegotiation of the
+TLS handshake, or both secure renegotiation
+<xref target="RFC5746"/> and the extended master secret
+<xref target="RFC7627"/> are used.</t>
+
+<t>The User header field as defined herein is orthogonal to issues of
+authentication and authorisation, and adds no security concerns.</t>
+
+</section>
+
+<section title="IANA Considerations">
+
+<t>This specification extends the "Hypertext Transfer Protocol (HTTP)
+Authentication Scheme Registry" with an "Authentication Scheme Name"
+SASL, referencing this specification.</t>
+
+<t>This specification defines an additional entry in the registry
+"Generic Security Service Application Program Interface (GSSAPI)/Kerberos/Simple Authentication and Security Layer (SASL) Service Names"
+namely:
+<figure><artwork><![CDATA[
+Service Name: HTTP
+Usage:        Web authentication using the SASL framework
+Reference:    TBD:this specification
+]]></artwork></figure>
+The capitalisation of the service name has historic origins and is now the
+preferred spelling for reasons of compatibility.</t>
+
+<t>Please add the following entry to the Message Headers registry:
+<figure><artwork><![CDATA[
+Header Field Name   Template   Protocol   Status    Reference
+------------------  ---------  ---------  -------   ----------
+User                           http       TBD       TBD:THIS_SPEC
+]]></artwork></figure>
+</t>
+
+</section>
+
+</middle>
+
+
+<back>
+
+<references title="Normative References">
+<!--
+ANCIENT, MOVE TO 723*: <?rfc include="reference.RFC.2616.xml"?>
+-->
+<?rfc include="reference.RFC.3986.xml"?>
+<?rfc include="reference.RFC.4120.xml"?>
+<?rfc include="reference.RFC.4559.xml"?>
+<?rfc include="reference.RFC.4422.xml"?>
+<?rfc include="reference.RFC.5056.xml"?>
+<?rfc include="reference.RFC.5554.xml"?>
+<?rfc include="reference.RFC.5746.xml"?>
+<?rfc include="reference.RFC.5801.xml"?>
+<?rfc include="reference.RFC.5929.xml"?>
+<?rfc include="reference.RFC.6595.xml"?>
+<?rfc include="reference.RFC.7231.xml"?>
+<?rfc include="reference.RFC.7232.xml"?>
+<?rfc include="reference.RFC.7235.xml"?>
+<!-- <?rfc include="reference.RFC.7542.xml"?> -->
+<?rfc include="reference.RFC.7615.xml"?>
+<?rfc include="reference.RFC.7627.xml"?>
+<!--
+<?rfc include="reference.RFC.2617.xml"?>
+-->
+<!--
+<reference title="RESTful" href="http://restcookbook.com/HTTP%20Methods/put-vs-post/"/>
+-->
+</references>
+
+<references title="Informative References">
+<?rfc include="reference.RFC.2617.xml"?>
+<?rfc include="reference.RFC.4505.xml"?>
+<!--
+<?rfc include="reference.RFC.5705.xml"?>
+<?rfc include="reference.RFC.5785.xml"?>
+-->
+<?rfc include="reference.RFC.5802.xml"?>
+<?rfc include="reference.RFC.7804.xml"?>
+<?rfc include="reference.I-D.vanrein-dnstxt-krb1.xml"?>
+-->
+</references>
+
+
+<section title="HTTP Server Environment Variables" anchor="envvars">
+
+<t>We define a number of variables that SHOULD be passed
+from an HTTP SASL stack (and from User header processing)
+to applications run on top of it.  The intention of
+defining these is to obtain maximum interoperability between
+these layers of software.</t>
+
+<!--
+<t>The following variable MAY be available in both
+the SASL authenticated and unauthenticated state:
+<list style="hanging" hangIndent="6">
+<t hangText="HTTP_USER"> refers to the
+    user name in the URI <!- - TODO: <xref target="http://internetwide.org/blog/2018/10/26/id-12-uri.html"/> - ->
+    that MUST NOT be accompanied by a password.  It refines
+    the view on resources held by the web server, usually
+    from a general site to one that is user-specific.  The
+    URI user is considered local to the web server (and,
+    as a result of that, often its domain or security
+    realm).  This variable is only set when it is
+    provided through the siteview field in the
+    SASL exchange.</t>
+</list></t>
+-->
+
+<t>The following variables MUST NOT be available until
+SASL authentication is successful; it would be available
+when the server could send a 200 OK response:
+<list style="hanging" hangIndent="6">
+<t hangText="SASL_SECURE"> is only "yes" (without the
+    quotes) when a client is authenticated
+    to the current resource.  It never has
+    another value; it is simply undefined when not
+    secured by SASL.</t>
+<t hangText="SASL_REALM"> is the realm for which the secure
+    exchange succeeded.  A realm is not always used,
+    because sites only need it when there are more than
+    one in the same name space.  When undefined in the
+    SASL flow, this variable will not be set.</t>
+<t hangText="REMOTE_USER"> is the client identity as confirmed through
+    SASL authentication.  Its content is formatted like
+    an email address, and includes a domain name.  That
+    domain need not be related to the web server; it is
+    possible for a web server to welcome foreign clients.</t>
+<t hangText="SASL_MECH"> indicates the mechanism used, and
+    is one of the standardised SASL mechanism names.
+    It may be used to detect the level of security.</t>
+<t hangText="SASL_S2S"> holds the accepted s2s field, and
+    could be used as a random session identifier.  It
+    would normally be encrypted information.</t>
+<t hangText="SASL_S2S_"> is a prefix for extra information that
+    the server may extract from the s2s field in
+    the HTTP SASL protocol flow.  This depends on the
+    authentication stack used in the web server.</t>
+</list></t>
+
+<t>The following variable SHOULD be available while processing
+a request with a User header with locally acceptable syntax:
+<list style="hanging" hangIndent="6">
+<t hangText="LOCAL_USER">gives the HTTP User header value
+	after syntax checking and percent-decoding.  If used at all,
+	it MUST be treated as a resource name space selector.
+	This header does not describe the authenticated client identity,
+	which is usually passed in a variable REMOTE_USER.</t>
+</list></t>
+
+
+
+</section>
+
+<section title="Acknowledgements" anchor="ack">
+
+<t>Thanks to Henri Manson for making the first implementation
+of this specification and for feedback on the header formats.
+The specification also benefited from input by Daniel Stenberg.</t>
+
+<!--
+-   thanks to pure-sasl: Alex Shafer, Tyler Hobbs
+-   thanks to Mozilla MDN
+-->
+
+</section>
+
+</back>
+
+</rfc>
