@@ -41,6 +41,7 @@
 <!--
 
 CHANGES FROM 04 TO 05:
+ * Removed c2c, which was only there for symmetry (thanks, Henri)
 
 
 CHANGES FROM 03 TO 04:
@@ -224,14 +225,14 @@ field that helps the client evaluate the request.</t>
 <t>The following fields, defined in upcoming sections, MUST and MAY be present
 in HTTP authentication exchanges for SASL:</t>
 <figure><artwork><![CDATA[
-Request or Response   | MUST have fields    | MAY have fields
-----------------------+---------------------+----------------------
-Initial Response      |     s2s,mech        |     realm
-Initial Request       | c2c,s2s,mech        | c2s,realm
-Intermediate Response | c2c,s2s             | s2c
-Intermediate Request  | c2c,s2s             | c2s
-Positive Response     | c2c                 | s2s
-Negative Response     | c2c,s2s,mech        |     realm
+Request or Response   | MUST have fields | MAY have fields
+----------------------+------------------+-----------------
+Initial Response      | s2s,mech         |     realm
+Initial Request       | s2s,mech         | c2s,realm
+Intermediate Response | s2s              | s2c
+Intermediate Request  | s2s              | c2s
+Positive Response     |                  | s2s
+Negative Response     | s2s,mech         |     realm
 ]]></artwork></figure>
 <!-- Note: Used to have user,realm with Initial Response/Request -->
 
@@ -256,10 +257,6 @@ Negative Response     | c2c,s2s,mech        |     realm
 	[Section 5.1.2 of <xref target="RFC7235"/>].  It MAY be used
 	in a Positive Response to pass a cacheable <xref target="cache"/>
 	authentication token.</t>
-<t hangText="c2c">
-	holds opaque client data which the server MUST reflect in
-	Intermediate, Positive and Negative Responses.  This can
-	help to also make the client stateless.</t>
 </list></t>
 
 <t>The following fields support SASL within the HTTP Authentication Framework:
@@ -494,8 +491,7 @@ Authorization: SASL
     realm="members only"
     mech="SCRAM-SHA-256-PLUS",
     c2s=[n,,n=user,r=rOprNGfwEbeRWgbNEkqO],
-    s2s=[xxxxx],
-    c2c=[qqqqq]
+    s2s=[xxxxx]
 ]]></artwork></figure>
 This mechanism is initiated by the client, hence the inclusion of the c2s token in the Initial Request.  The contents of this field are specific to the selected mechanism, so SCRAM-SHA-256-PLUS in this case.</t>
 
@@ -506,19 +502,17 @@ WWW-Authentication: SASL
     s2c=[r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxF
          Ilj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,
          i=4096]
-    s2s=[yyyyy],
-    c2c=[qqqqq]
+    s2s=[yyyyy]
 ]]></artwork></figure></t>
 
-<t>Given that all server state is contained in this message, the client is free at any time to give up authentication and perhaps try another method.  Normally however, it would proceed with the ongoing transaction.  The client bounces state through the server in the c2c token, though it could be empty if a client manages state locally.  Complex services however, would prefer the added signing and/or encryption of c2c in return for the benefit of decoupling the request/response state from the network connection.</t>
+<t>Given that all server state is contained in this message, the client is free at any time to give up authentication and perhaps try another method.  Normally however, it would proceed with the ongoing transaction.</t>
 
-<t>The SCRAM mechanism continues with another round.  The client engages in the prescribed cryptographic computations and packs an Intermediate Request along with updated state in the new c2c token
+<t>The SCRAM mechanism continues with another round.  The client engages in the prescribed cryptographic computations and packs an Intermediate Request along with updated state in the new c2s token
 <figure><artwork><![CDATA[
 Authorization: SASL
     c2s=[c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hN
          lF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=]
-    s2s=[yyyyy],
-    c2c=[rrrrr]
+    s2s=[yyyyy]
 ]]></artwork></figure></t>
 
 <t>When the client has performed authentication properly, as determined by a server-side check of the c2s response token with the prior state in the s2s token, it can send a Positive Response along with the requested resource
@@ -526,16 +520,14 @@ Authorization: SASL
 HTTP/1.1 200 OK
 WWW-Authentication: SASL
     s2c=[v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=]
-    s2s=[zzzzz],
-    c2c=[rrrrr]
+    s2s=[zzzzz]
 ]]></artwork></figure></t>
 
 <t>The s2s token in a Positive Response is an optional extension.  It is presented by the server to allow the client to speed up authentication in future requests.  The client may send it whenever the server asks for the same realm string under the same scheme and authority; the client may make proactive assumpions about the realm string for new requests.  Authentication must never be reused in another context than bound by channel binding.  When used, the client immediate sends an Intermediate Response holding
 <figure><artwork><![CDATA[
 Authorization: SASL
     realm="members only"
-    s2s=[zzzzz],
-    c2c=[sssss]
+    s2s=[zzzzz]
 ]]></artwork></figure></t>
 
 <t>The server always has an option to refuse repeated authentication and forcing the client into a new authentication round.  One reason for this could be that a session timed out.  Another might be that the client is trying to use a credential outside a scope set by channel binding.</t>
@@ -551,11 +543,11 @@ HTTP messages is not secured to form one stream.  This means that a
 secure transport layer must be used, like TLS.  The termination of such
 a secure layer MUST also terminate any ongoing SASL handshakes.</t>
 
-<t>The c2c and s2s fields MUST be protected against tampering by rogue
+<t>The s2s field MUST be protected against tampering by rogue
 peers, and such
 protection also protects against tampering by rogue intermediates when
 using an unprotected transport.  In addition, but dependent on the
-mechanism used, the c2c and s2s fields may also
+mechanism used, the s2s field may also
 need encryption to conceal their data from peers and intermediates.</t>
 
 <t>SASL EXTERNAL can be a very efficient mechanism to combine with a
